@@ -99,7 +99,9 @@ export const App: React.FC = () => {
         try {
           const config = await window.electronAPI.getAppConfig();
           setAppConfig(config);
-          const hasOwnerAccount = Boolean(config.owner_name && config.owner_password);
+          const hasOwnerAccount = Boolean(
+            config.owner_name?.trim() && config.owner_password
+          );
           setIsSetupComplete(hasOwnerAccount);
         } catch (err) {
           console.error('Error fetching app config:', err);
@@ -108,7 +110,7 @@ export const App: React.FC = () => {
       } else {
         const localOwnerName = localStorage.getItem('ll_owner_name');
         const localOwnerPass = localStorage.getItem('ll_owner_password');
-        if (localOwnerName && localOwnerPass) {
+        if (localOwnerName?.trim() && localOwnerPass) {
           setAppConfig({ owner_name: localOwnerName, owner_password: localOwnerPass });
           setIsSetupComplete(true);
         } else {
@@ -747,8 +749,8 @@ export const App: React.FC = () => {
     }
     setAppConfig((prev) => ({ ...prev, owner_name: username, owner_password: password }));
     setIsSetupComplete(true);
-    setCurrentUser({ name: username, role: 'Owner' });
-    showToast(`Welcome, ${username}! Owner profile created.`);
+    setCurrentUser(null);
+    showToast(`Owner profile created for ${username}. Please sign in.`);
   };
 
   if (isSetupComplete === null) {
