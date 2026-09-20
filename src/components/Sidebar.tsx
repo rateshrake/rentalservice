@@ -8,21 +8,27 @@ import {
   CreditCard,
   BarChart3,
   MessageSquare,
-  FileText,
   Settings,
-  Camera
+  LogOut
 } from 'lucide-react';
+import cameraHubLogo from '../assets/camerahublogo.png';
 
 interface SidebarProps {
   activeTab: string;
   onSelectTab: (tab: string) => void;
   messageCount?: number;
+  username: string;
+  role?: string;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
-  messageCount = 3
+  messageCount = 3,
+  username,
+  role = 'Owner',
+  onLogout
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -33,7 +39,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'messages', label: 'Messages', icon: MessageSquare, badge: messageCount },
-    { id: 'documents', label: 'Documents', icon: FileText },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -42,12 +47,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Top Branding */}
       <div>
         <div className="p-4 flex items-center gap-3 border-b border-slate-800/60">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white shadow-md shadow-red-950/40">
-            <Camera className="w-6 h-6 stroke-[2.2]" />
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
+            <img src={cameraHubLogo} alt="CameraHub Logo" className="w-full h-full object-contain rounded-md" />
           </div>
           <div className="flex flex-col">
             <span className="text-white font-bold text-base tracking-tight leading-tight">
-              LensLedger
+              CameraHub
             </span>
             <span className="text-[11px] text-slate-400 font-normal leading-tight">
               Gear In. Stories Out.
@@ -85,24 +90,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Bottom Camera Backdrop & Tagline */}
-      <div className="p-4 pt-12 relative mt-auto border-t border-slate-900/40">
-        {/* Subtle camera lens graphic background */}
-        <div className="absolute right-[-20px] bottom-6 opacity-15 pointer-events-none">
-          <svg width="180" height="180" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="100" cy="100" r="80" stroke="white" strokeWidth="4" />
-            <circle cx="100" cy="100" r="60" stroke="white" strokeWidth="2" strokeDasharray="6 6" />
-            <circle cx="100" cy="100" r="40" stroke="white" strokeWidth="3" />
-            <circle cx="100" cy="100" r="20" fill="white" />
-            <rect x="70" y="10" width="60" height="15" rx="4" fill="white" />
-          </svg>
+      {/* Bottom User Profile */}
+      <div className="p-3.5 mt-auto border-t border-slate-800/60 bg-slate-900/40 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs border border-emerald-200 shrink-0">
+            {username ? username.slice(0, 2).toUpperCase() : 'U'}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-semibold text-white truncate leading-tight">{username || 'User'}</span>
+            <span className="text-[10px] text-slate-400 font-medium truncate leading-tight">{role || 'Owner'}</span>
+          </div>
         </div>
 
-        <div className="relative z-10">
-          <p className="text-xs font-semibold text-slate-200">Better Gear</p>
-          <p className="text-xs text-slate-400">Brighter Stories</p>
-          <div className="mt-4 text-[10px] text-slate-500 font-mono">v1.0.0</div>
-        </div>
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            title="Log out"
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer shrink-0"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </aside>
   );

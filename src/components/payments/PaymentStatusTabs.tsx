@@ -18,10 +18,7 @@ interface PaymentStatusTabsProps {
   counts: {
     all: number;
     paid: number;
-    pending: number;
-    partial: number;
-    deposit: number;
-    refund: number;
+    unpaid: number;
   };
 }
 
@@ -37,10 +34,7 @@ export const PaymentStatusTabs: React.FC<PaymentStatusTabsProps> = ({
   const tabs: PaymentStatusTabItem[] = [
     { id: 'all', label: 'All Payments', count: counts.all },
     { id: 'paid', label: 'Paid', count: counts.paid, dotColor: 'bg-emerald-500' },
-    { id: 'pending', label: 'Pending', count: counts.pending, dotColor: 'bg-orange-500' },
-    { id: 'partial', label: 'Partial', count: counts.partial, dotColor: 'bg-amber-400' },
-    { id: 'deposit', label: 'Deposit', count: counts.deposit, dotColor: 'bg-purple-500' },
-    { id: 'refund', label: 'Refund', count: counts.refund, dotColor: 'bg-rose-500' },
+    { id: 'unpaid', label: 'Unpaid', count: counts.unpaid, dotColor: 'bg-rose-500' },
   ];
 
   return (

@@ -1,23 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SettingsHeader } from './SettingsHeader';
-import { BusinessProfileCard } from './BusinessProfileCard';
 import { EmployeesCard } from './EmployeesCard';
 import { RolesPermissionsCard } from './RolesPermissionsCard';
-import { RentalPricingCard } from './RentalPricingCard';
 import { LateFeeRulesCard } from './LateFeeRulesCard';
-import { PaymentModesCard } from './PaymentModesCard';
-import { MessageTemplatesCard } from './MessageTemplatesCard';
 import { NotificationRulesCard } from './NotificationRulesCard';
-import { DocumentSecurityBackupCard } from './DocumentSecurityBackupCard';
+import { BackupCard } from './BackupCard';
 import { AuditLogTable } from './AuditLogTable';
+import { AddEditEmployeeModal } from '../modals/AddEditEmployeeModal';
 import {
   SettingsData,
-  BusinessProfile,
-  RentalPricingSettings,
   LateFeeRulesSettings,
-  PaymentModeSettingItem,
   NotificationRuleSettingItem,
-  DocumentSecuritySettings,
   BackupSettings,
   EmployeeItem,
 } from '../../types';
@@ -26,6 +19,8 @@ interface SettingsViewProps {
   data: SettingsData;
   onSaveSettings: (updated: Partial<SettingsData>) => Promise<boolean>;
   onAddEmployee: (emp: Partial<EmployeeItem>) => Promise<EmployeeItem>;
+  onUpdateEmployee: (id: number, data: { name: string; phone: string; role: string; status: 'Active' | 'Inactive' }) => Promise<boolean>;
+  onRemoveEmployee: (id: number) => Promise<boolean>;
   onTriggerBackup: () => Promise<boolean>;
   onOpenSearch: () => void;
 }
@@ -34,36 +29,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   data,
   onSaveSettings,
   onAddEmployee,
+  onUpdateEmployee,
+  onRemoveEmployee,
   onTriggerBackup,
   onOpenSearch,
 }) => {
-  const [profile, setProfile] = useState<BusinessProfile>(data.businessProfile);
-  const [pricing, setPricing] = useState<RentalPricingSettings>(data.rentalPricing);
   const [lateFee, setLateFee] = useState<LateFeeRulesSettings>(data.lateFeeRules);
-  const [paymentModes, setPaymentModes] = useState<PaymentModeSettingItem[]>(data.paymentModes);
-  const [messageTemplates, setMessageTemplates] = useState<Record<string, string>>(
-    data.messageTemplates
-  );
   const [notificationRules, setNotificationRules] = useState<NotificationRuleSettingItem[]>(
     data.notificationRules
   );
-  const [security, setSecurity] = useState<DocumentSecuritySettings>(data.documentSecurity);
   const [backup, setBackup] = useState<BackupSettings>(data.backup);
   const [rolesPermissions, setRolesPermissions] = useState<Record<string, string[]>>(
     data.rolesPermissions
   );
-  const [employees, setEmployees] = useState<EmployeeItem[]>(data.employees);
+  const [employees, setEmployees] = useState<EmployeeItem[]>(data.employees || []);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Modal states for Employee management
+  const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
+  const [selectedEmployeeForEdit, setSelectedEmployeeForEdit] = useState<EmployeeItem | null>(null);
+
+  // Synchronize when data.employees updates from parent
+  useEffect(() => {
+    if (data.employees) {
+      setEmployees(data.employees);
+    }
+  }, [data.employees]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
-  };
-
-  const handleTogglePaymentMode = (id: string) => {
-    setPaymentModes((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, is_enabled: !m.is_enabled } : m))
-    );
   };
 
   const handleToggleNotificationRule = (id: string) => {
@@ -76,10 +71,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setNotificationRules((prev) =>
       prev.map((r) => (r.id === id ? { ...r, timing } : r))
     );
-  };
-
-  const handleChangeMessageTemplate = (key: string, content: string) => {
-    setMessageTemplates((prev) => ({ ...prev, [key]: content }));
   };
 
   const handleBackupNow = async () => {
@@ -96,13 +87,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveAll = async () => {
     const payload: Partial<SettingsData> = {
-      businessProfile: profile,
-      rentalPricing: pricing,
       lateFeeRules: lateFee,
-      paymentModes,
-      messageTemplates,
       notificationRules,
-      documentSecurity: security,
       backup,
       rolesPermissions,
     };
@@ -116,21 +102,67 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleAddEmployeeModal = async () => {
-    const names = ['Kavita Rao', 'Pooja Hegde', 'Sameer Verma', 'Ankit Jain'];
-    const randomName = names[Math.floor(Math.random() * names.length)];
-    const newEmp: Partial<EmployeeItem> = {
-      name: randomName,
-      role: 'Staff',
-      email: `${randomName.toLowerCase().replace(/\s+/g, '.')}@lensledger.in`,
-      status: 'Active',
-    };
+  // Open modal for new employee
+  const handleOpenAddEmployee = () => {
+    setSelectedEmployeeForEdit(null);
+    setIsEmployeeModalOpen(true);
+  };
+
+  // Open modal for editing employee
+  const handleOpenEditEmployee = (emp: EmployeeItem) => {
+    setSelectedEmployeeForEdit(emp);
+    setIsEmployeeModalOpen(true);
+  };
+
+  // Handle employee modal submit (add or edit)
+  const handleEmployeeSubmit = async (formData: {
+    name: string;
+    phone: string;
+    role: string;
+    status: 'Active' | 'Inactive';
+  }) => {
+    if (selectedEmployeeForEdit) {
+      // Edit mode
+      try {
+        await onUpdateEmployee(selectedEmployeeForEdit.id, formData);
+        setEmployees((prev) =>
+          prev.map((emp) =>
+            emp.id === selectedEmployeeForEdit.id ? { ...emp, ...formData } : emp
+          )
+        );
+        showToast(`Employee ${formData.name} updated successfully!`);
+      } catch (err) {
+        console.error('Failed to update employee:', err);
+        showToast('Failed to update employee');
+      }
+    } else {
+      // Add mode
+      try {
+        const added = await onAddEmployee({
+          name: formData.name,
+          phone: formData.phone,
+          role: formData.role,
+          status: formData.status,
+          email: `${formData.name.toLowerCase().replace(/\s+/g, '.')}@camerahub.in`,
+        });
+        setEmployees((prev) => [...prev, added]);
+        showToast(`Employee ${formData.name} added successfully!`);
+      } catch (err) {
+        console.error('Failed to add employee:', err);
+        showToast('Failed to add employee');
+      }
+    }
+  };
+
+  // Handle removing employee smoothly without page reload
+  const handleRemoveEmployee = async (id: number) => {
     try {
-      const added = await onAddEmployee(newEmp);
-      setEmployees((prev) => [...prev, added]);
-      showToast(`Employee ${added.name} added successfully!`);
+      await onRemoveEmployee(id);
+      setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+      showToast('Employee removed successfully!');
     } catch (err) {
-      console.error(err);
+      console.error('Failed to remove employee:', err);
+      showToast('Failed to remove employee');
     }
   };
 
@@ -152,21 +184,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Main Grid Content Area */}
       <div className="flex-1 overflow-y-auto px-8 py-5 space-y-5">
-        {/* Row 1: Business Profile | Employees | Roles & Permissions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
-          <div>
-            <BusinessProfileCard
-              profile={profile}
-              onChange={(updated) => setProfile((p) => ({ ...p, ...updated }))}
-              onChangeLogo={() => showToast('Logo updated!')}
-            />
-          </div>
-
-          <div>
+        {/* Section 1: Employees (Wide) & Roles & Permissions */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
+          <div className="lg:col-span-2">
             <EmployeesCard
               employees={employees}
-              onAddEmployee={handleAddEmployeeModal}
-              onActionClick={(emp) => showToast(`Options for ${emp.name}`)}
+              onAddEmployee={handleOpenAddEmployee}
+              onEditEmployee={handleOpenEditEmployee}
+              onRemoveEmployee={handleRemoveEmployee}
             />
           </div>
 
@@ -181,36 +206,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
 
-        {/* Row 2: Rental Pricing | Late Fee Rules | Payment Modes */}
+        {/* Section 2: Late Fee Rules, Notification Rules, Database & Backup */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
-          <div>
-            <RentalPricingCard
-              pricing={pricing}
-              onChange={(updated) => setPricing((p) => ({ ...p, ...updated }))}
-            />
-          </div>
-
           <div>
             <LateFeeRulesCard
               lateFee={lateFee}
               onChange={(updated) => setLateFee((l) => ({ ...l, ...updated }))}
-            />
-          </div>
-
-          <div>
-            <PaymentModesCard
-              modes={paymentModes}
-              onToggleMode={handleTogglePaymentMode}
-            />
-          </div>
-        </div>
-
-        {/* Row 3: Message Templates | Notification Rules | Document Security & Backup */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
-          <div>
-            <MessageTemplatesCard
-              templates={messageTemplates}
-              onChangeTemplate={handleChangeMessageTemplate}
             />
           </div>
 
@@ -223,17 +224,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div>
-            <DocumentSecurityBackupCard
-              security={security}
+            <BackupCard
               backup={backup}
-              onChangeSecurity={(updated) => setSecurity((s) => ({ ...s, ...updated }))}
               onChangeBackup={(updated) => setBackup((b) => ({ ...b, ...updated }))}
               onBackupNow={handleBackupNow}
             />
           </div>
         </div>
 
-        {/* Row 4: Audit Log Table (Full Width) */}
+        {/* Section 3: Audit Log Table (Full Width) */}
         <div>
           <AuditLogTable
             logs={data.auditLogs}
@@ -241,6 +240,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           />
         </div>
       </div>
+
+      {/* Add / Edit Employee Modal */}
+      <AddEditEmployeeModal
+        isOpen={isEmployeeModalOpen}
+        onClose={() => setIsEmployeeModalOpen(false)}
+        employeeToEdit={selectedEmployeeForEdit}
+        onSubmit={handleEmployeeSubmit}
+      />
     </div>
   );
 };

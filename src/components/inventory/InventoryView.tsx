@@ -11,6 +11,8 @@ interface InventoryViewProps {
   kpiStats: StatItem[];
   onOpenAddEquipment?: () => void;
   onOpenSearch: () => void;
+  onEditEquipment?: (item: InventoryItem) => void;
+  onDeleteEquipment?: (id: number) => void;
   onViewRental?: (rentalCode: string) => void;
 }
 
@@ -18,6 +20,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   inventory,
   kpiStats,
   onOpenAddEquipment,
+  onEditEquipment,
+  onDeleteEquipment,
   onOpenSearch,
   onViewRental,
 }) => {
@@ -89,6 +93,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               onStatusFilterChange={setStatusFilter}
               conditionFilter={conditionFilter}
               onConditionFilterChange={setConditionFilter}
+              onEditEquipment={onEditEquipment}
+              onDeleteEquipment={onDeleteEquipment}
             />
           </div>
 
@@ -97,8 +103,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             {selectedEquipment && (
               <EquipmentInsightsPanel
                 item={selectedEquipment}
-                onClose={() => {}}
                 onViewRental={onViewRental}
+                onEditEquipment={onEditEquipment}
+                onDeleteEquipment={onDeleteEquipment}
               />
             )}
           </div>

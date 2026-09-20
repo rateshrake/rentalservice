@@ -13,6 +13,7 @@ interface RentalsViewProps {
   onOpenNewRental: () => void;
   onOpenSearch: () => void;
   onUpdateStatus?: (id: number, status: string, payment: string) => void;
+  onOpenReceiveReturn?: () => void;
 }
 
 export const RentalsView: React.FC<RentalsViewProps> = ({
@@ -21,6 +22,7 @@ export const RentalsView: React.FC<RentalsViewProps> = ({
   onOpenNewRental,
   onOpenSearch,
   onUpdateStatus,
+  onOpenReceiveReturn,
 }) => {
   // Tabs & filters
   const [activeTab, setActiveTab] = useState<RentalTabType>('all');
@@ -43,12 +45,9 @@ export const RentalsView: React.FC<RentalsViewProps> = ({
   // Tab counts calculation
   const counts = useMemo(() => {
     return {
-      all: 42,
+      all: rentals.length,
       active: rentals.filter((r) => r.status === 'Active').length || 18,
-      due_today: rentals.filter((r) => r.status === 'Due Today').length || 4,
-      overdue: rentals.filter((r) => r.status === 'Overdue').length || 3,
       returned: 312, // Matches screenshot figure (all-time completed returns)
-      reserved: rentals.filter((r) => r.status === 'Reserved').length || 5,
     };
   }, [rentals]);
 
@@ -76,10 +75,7 @@ export const RentalsView: React.FC<RentalsViewProps> = ({
       .filter((item) => {
         // Tab filter
         if (activeTab === 'active' && item.status !== 'Active') return false;
-        if (activeTab === 'due_today' && item.status !== 'Due Today') return false;
-        if (activeTab === 'overdue' && item.status !== 'Overdue') return false;
         if (activeTab === 'returned' && item.status !== 'Returned') return false;
-        if (activeTab === 'reserved' && item.status !== 'Reserved') return false;
 
         // Status dropdown filter
         if (statusFilter !== 'all' && item.status !== statusFilter) return false;
@@ -146,6 +142,7 @@ export const RentalsView: React.FC<RentalsViewProps> = ({
       <RentalsHeader
         onOpenNewRental={onOpenNewRental}
         onOpenSearch={onOpenSearch}
+        onOpenReceiveReturn={onOpenReceiveReturn}
       />
 
       {/* Main scrollable body */}

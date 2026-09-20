@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   X,
@@ -11,15 +11,17 @@ import {
   CheckCircle2,
   Clock,
   UserCheck,
+  UserPlus,
 } from 'lucide-react';
 import { CustomerItem } from '../../types';
 
 interface CustomerSelectionPanelProps {
-  selectedCustomer: CustomerItem;
+  selectedCustomer: CustomerItem | null;
   allCustomers: CustomerItem[];
   onSelectCustomer: (customer: CustomerItem) => void;
   onEditCustomer?: (customer: CustomerItem) => void;
   onViewAllRentals?: () => void;
+  onAddNewCustomer?: (searchQuery: string) => void;
 }
 
 export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
@@ -28,9 +30,22 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
   onSelectCustomer,
   onEditCustomer,
   onViewAllRentals,
+  onAddNewCustomer,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [customerRentals, setCustomerRentals] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (selectedCustomer && window.electronAPI?.getAllRentals) {
+      window.electronAPI.getAllRentals().then(all => {
+        const filtered = all.filter((r: any) => r.customer_name === selectedCustomer.name).sort((a: any, b: any) => b.id - a.id);
+        setCustomerRentals(filtered);
+      }).catch(console.error);
+    } else {
+      setCustomerRentals([]);
+    }
+  }, [selectedCustomer]);
 
   // Filter customers based on search query
   const filteredCustomers = allCustomers.filter((c) => {
@@ -104,14 +119,28 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
                         {cust.primary_phone}
                       </span>
                     </div>
-                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-sm">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium ${
+                      cust.verification === 'Verified'
+                        ? 'text-emerald-600 bg-emerald-50'
+                        : 'text-amber-600 bg-amber-50'
+                    }`}>
                       {cust.verification}
                     </span>
                   </button>
                 ))
               ) : (
-                <div className="px-3 py-2 text-xs text-slate-400">
-                  No matching customer found
+                <div className="px-3 py-3 text-xs text-center flex flex-col items-center gap-2">
+                  <span className="text-slate-500">No matching customer found</span>
+                  <button
+                    onClick={() => {
+                      onAddNewCustomer?.(searchQuery);
+                      setIsDropdownOpen(false);
+                    }}
+                    className="px-4 py-1.5 bg-[#E11D48] hover:bg-rose-700 text-white font-semibold rounded-md shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Create Customer</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -119,26 +148,20 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
         </div>
 
         {/* Selected Customer Card */}
-        <div className="bg-[#FFF5F6]/40 border border-rose-100/90 rounded-xl p-4 mb-4 relative">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              {/* Initials Avatar */}
-              <div className="w-11 h-11 rounded-full bg-slate-200/90 text-slate-600 flex items-center justify-center font-bold text-sm shrink-0">
-                {selectedCustomer.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </div>
-
+        {selectedCustomer ? (
+          <div className="bg-[#FFF5F6]/40 border border-rose-100/90 rounded-xl p-4 mb-4 relative">
+            <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-slate-900 text-sm">
                     {selectedCustomer.name}
                   </h3>
-                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-200/80">
-                    Existing Customer
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                    selectedCustomer.verification === 'Verified' 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                      : 'bg-amber-50 text-amber-700 border-amber-200/80'
+                  }`}>
+                    {selectedCustomer.verification === 'Verified' ? 'Verified KYC' : 'Pending Verification'}
                   </span>
                 </div>
 
@@ -155,7 +178,6 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
                 </div>
               </div>
             </div>
-          </div>
 
           {/* Detail list */}
           <div className="mt-3 space-y-1.5 text-xs text-slate-600">
@@ -167,7 +189,7 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
             )}
             <div className="flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-              <span>{selectedCustomer.location || 'Mumbai, Maharashtra'}</span>
+              <span>{selectedCustomer.address || selectedCustomer.location || 'Mumbai, Maharashtra'}</span>
             </div>
             <div className="flex items-center gap-2">
               <CreditCard className="w-3.5 h-3.5 text-rose-500 shrink-0" />
@@ -188,9 +210,21 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
             </button>
           </div>
         </div>
+        ) : (
+          <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-6 mb-4 flex flex-col items-center justify-center text-center">
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+              <UserCheck className="w-5 h-5 text-slate-400" />
+            </div>
+            <p className="text-xs text-slate-500 font-medium">No customer selected</p>
+            <p className="text-[10px] text-slate-400 mt-1 max-w-[200px]">
+              Search above to select an existing customer or create a new one.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Customer Rental History Card */}
+      {selectedCustomer && (
       <div className="border-t border-slate-100 pt-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold text-slate-900">
@@ -213,7 +247,7 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
             </div>
             <div>
               <div className="text-sm font-bold text-slate-900 leading-tight">
-                {selectedCustomer.total_rentals || 8}
+                {customerRentals.length}
               </div>
               <div className="text-[10px] text-slate-500 leading-tight">
                 Total Rentals
@@ -228,7 +262,7 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
             </div>
             <div>
               <div className="text-sm font-bold text-slate-900 leading-tight">
-                {Math.max((selectedCustomer.total_rentals || 8) - (selectedCustomer.active_rentals || 1), 7)}
+                {customerRentals.filter(r => r.status === 'Completed' || r.status === 'Returned').length}
               </div>
               <div className="text-[10px] text-slate-500 leading-tight">
                 Completed
@@ -243,7 +277,7 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
             </div>
             <div>
               <div className="text-sm font-bold text-slate-900 leading-tight">
-                {selectedCustomer.active_rentals || 1}
+                {customerRentals.filter(r => r.status === 'Active' || r.status === 'Ongoing').length}
               </div>
               <div className="text-[10px] text-slate-500 leading-tight">
                 Ongoing
@@ -253,18 +287,25 @@ export const CustomerSelectionPanel: React.FC<CustomerSelectionPanelProps> = ({
         </div>
 
         {/* Last Rental */}
-        <div className="bg-slate-50/60 border border-slate-200/60 rounded-lg p-2.5 flex items-center justify-between text-xs">
-          <div>
-            <span className="text-[10px] text-slate-400 block">Last Rental</span>
-            <span className="font-semibold text-slate-800 text-[11px]">
-              RNT-2025-018 • Sony A7 IV + 24-70mm GM II
+        {customerRentals.length > 0 ? (
+          <div className="bg-slate-50/60 border border-slate-200/60 rounded-lg p-2.5 flex items-center justify-between text-xs">
+            <div>
+              <span className="text-[10px] text-slate-400 block">Last Rental</span>
+              <span className="font-semibold text-slate-800 text-[11px]">
+                {customerRentals[0].rental_code} • {customerRentals[0].equipment_name}
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-500 font-medium">
+              {customerRentals[0].pickup_date}
             </span>
           </div>
-          <span className="text-[11px] text-slate-500 font-medium">
-            12 May 2025
-          </span>
-        </div>
+        ) : (
+          <div className="bg-slate-50/60 border border-slate-200/60 rounded-lg p-2.5 text-center text-xs text-slate-500">
+            No rentals yet
+          </div>
+        )}
       </div>
+      )}
     </div>
   );
 };

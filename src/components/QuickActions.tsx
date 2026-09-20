@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarPlus, UserPlus, RotateCcw, CreditCard } from 'lucide-react';
+import { CalendarPlus, UserPlus, RotateCcw } from 'lucide-react';
 
 interface QuickActionsProps {
   onActionClick: (action: 'rental' | 'customer' | 'return' | 'payment') => void;
@@ -25,18 +25,12 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onActionClick }) => 
       description: 'Process equipment returns',
       icon: RotateCcw,
     },
-    {
-      id: 'payment' as const,
-      title: 'Record Payment',
-      description: 'Mark a payment as received',
-      icon: CreditCard,
-    },
   ];
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs">
       <h2 className="text-sm font-bold text-slate-900 mb-3">Quick Actions</h2>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {actions.map((action) => {
           const Icon = action.icon;
           return (

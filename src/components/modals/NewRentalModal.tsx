@@ -17,8 +17,8 @@ export const NewRentalModal: React.FC<NewRentalModalProps> = ({
   const [equipmentName, setEquipmentName] = useState('Sony A7 IV');
   const [returnTime, setReturnTime] = useState('Today, 8:00 PM');
   const [amount, setAmount] = useState('4500');
-  const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'Pending'>('Paid');
-  const [status, setStatus] = useState<'Due Today' | 'On Time'>('Due Today');
+  const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'Unpaid'>('Paid');
+  const [status, setStatus] = useState<'Active' | 'Returned'>('Active');
 
   if (!isOpen) return null;
 
@@ -130,11 +130,11 @@ export const NewRentalModal: React.FC<NewRentalModalProps> = ({
               <label className="block font-semibold text-slate-700 mb-1">Payment Status</label>
               <select
                 value={paymentStatus}
-                onChange={(e) => setPaymentStatus(e.target.value as 'Paid' | 'Pending')}
+                onChange={(e) => setPaymentStatus(e.target.value as 'Paid' | 'Unpaid')}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-xs focus:bg-white focus:outline-none"
               >
                 <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
+                <option value="Unpaid">Unpaid</option>
               </select>
             </div>
 
@@ -142,11 +142,11 @@ export const NewRentalModal: React.FC<NewRentalModalProps> = ({
               <label className="block font-semibold text-slate-700 mb-1">Status</label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as 'Due Today' | 'On Time')}
+                onChange={(e) => setStatus(e.target.value as 'Active' | 'Returned')}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-xs focus:bg-white focus:outline-none"
               >
-                <option value="Due Today">Due Today</option>
-                <option value="On Time">On Time</option>
+                <option value="Active">Active</option>
+                <option value="Returned">Returned</option>
               </select>
             </div>
           </div>

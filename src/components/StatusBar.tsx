@@ -19,7 +19,7 @@ export const StatusBar: React.FC = () => {
 
       {/* Right tagline */}
       <div className="text-slate-400 font-medium">
-        LensLedger &ndash; Trusted by Creators. Powered by You.
+        CameraHub &ndash; Trusted by Creators. Powered by You.
       </div>
     </footer>
   );

@@ -49,13 +49,7 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = ({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200/80 bg-slate-50/50 text-[11px] font-semibold text-slate-700 select-none">
-              <th className="py-3 pl-4 pr-1 w-7">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-300 text-red-600 focus:ring-red-500 w-3.5 h-3.5 cursor-pointer"
-                />
-              </th>
-              <th className="py-3 px-2 font-semibold">
+              <th className="py-3 pl-4 px-2 font-semibold">
                 <div className="flex items-center gap-1">
                   <span>Customer</span>
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
@@ -65,7 +59,6 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = ({
               <th className="py-3 px-2 font-semibold">Alternate Phone</th>
               <th className="py-3 px-2 font-semibold text-center">Total Rentals</th>
               <th className="py-3 px-2 font-semibold text-center">Active Rentals</th>
-              <th className="py-3 px-2 font-semibold">Outstanding Amount</th>
               <th className="py-3 px-2 font-semibold">Last Rental</th>
               <th className="py-3 pr-4 pl-2 font-semibold">Verification</th>
             </tr>
@@ -83,18 +76,8 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = ({
                     isSelected ? 'bg-red-50/30' : ''
                   }`}
                 >
-                  {/* Checkbox */}
-                  <td className="py-2.5 pl-4 pr-1">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => onSelectCustomer(c)}
-                      className="rounded border-slate-300 text-red-600 focus:ring-red-500 w-3.5 h-3.5 cursor-pointer"
-                    />
-                  </td>
-
                   {/* Customer Avatar & Name */}
-                  <td className="py-2.5 px-2">
+                  <td className="py-2.5 pl-4 px-2">
                     <div className="flex items-center gap-2.5">
                       {c.avatar_type === 'photo' && c.avatar_img ? (
                         <img
@@ -136,11 +119,6 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = ({
                   {/* Active Rentals */}
                   <td className="py-2.5 px-2 text-center font-bold text-slate-900">
                     {c.active_rentals}
-                  </td>
-
-                  {/* Outstanding Amount */}
-                  <td className="py-2.5 px-2 font-bold text-slate-900 whitespace-nowrap">
-                    ₹{c.outstanding_amount.toLocaleString('en-IN')}
                   </td>
 
                   {/* Last Rental */}

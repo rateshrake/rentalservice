@@ -67,7 +67,7 @@ interface MessageComposerProps {
     customer_name: string;
     initials: string;
     subject: string;
-    channel: 'whatsapp' | 'sms';
+    channel: 'whatsapp';
     text: string;
   }) => void;
 }
@@ -78,7 +78,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   onSelectTemplate,
   onSendMessage,
 }) => {
-  const [selectedChannel, setSelectedChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [selectedChannel, setSelectedChannel] = useState<'whatsapp'>('whatsapp');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption>(SAMPLE_CUSTOMERS[0]);
   const [messageText, setMessageText] = useState<string>('');
 
@@ -92,7 +92,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         .replace(/{return_time}/g, selectedCustomer.return_time)
         .replace(/{amount}/g, selectedCustomer.amount)
         .replace(/{rental_code}/g, selectedCustomer.rental_code)
-        .replace(/{link}/g, `https://pay.lensledger.in/${selectedCustomer.rental_code}`);
+        .replace(/{link}/g, `https://pay.camerahub.in/${selectedCustomer.rental_code}`);
       setMessageText(interpolated);
     } else {
       setMessageText(
@@ -155,49 +155,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           </div>
         </div>
 
-        {/* Row 2: Channel Selector */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-            Channel
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setSelectedChannel('whatsapp')}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                selectedChannel === 'whatsapp'
-                  ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs'
-                  : 'bg-slate-50/70 border-slate-200 text-slate-600 hover:bg-slate-100/70'
-              }`}
-            >
-              <MessageCircle
-                className={`w-4 h-4 ${
-                  selectedChannel === 'whatsapp' ? 'text-emerald-600 fill-emerald-100' : 'text-slate-400'
-                }`}
-              />
-              <span>WhatsApp</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedChannel('sms')}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                selectedChannel === 'sms'
-                  ? 'bg-rose-50 border-[#E11D48] text-[#E11D48] shadow-2xs'
-                  : 'bg-slate-50/70 border-slate-200 text-slate-600 hover:bg-slate-100/70'
-              }`}
-            >
-              <MessageSquare
-                className={`w-4 h-4 ${
-                  selectedChannel === 'sms' ? 'text-[#E11D48]' : 'text-slate-400'
-                }`}
-              />
-              <span>SMS</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Row 3: Customer Selector */}
+        {/* Row 2: Customer Selector */}
         <div>
           <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
             Customer

@@ -14,6 +14,7 @@ interface PaymentsViewProps {
   onViewRental?: (rentalId: string) => void;
   onViewCustomer?: (customerName: string) => void;
   onViewReceipt?: (payment: PaymentItem) => void;
+  onUpdatePaymentStatus?: (id: number, status: 'Paid' | 'Unpaid') => void;
 }
 
 export const PaymentsView: React.FC<PaymentsViewProps> = ({
@@ -24,6 +25,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
   onViewRental,
   onViewCustomer,
   onViewReceipt,
+  onUpdatePaymentStatus,
 }) => {
   const [selectedPaymentId, setSelectedPaymentId] = useState<number>(
     payments[0]?.id || 1
@@ -44,12 +46,9 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
   // Status counts
   const counts = useMemo(() => {
     return {
-      all: payments.length || 24,
-      paid: payments.filter((p) => p.status === 'Paid').length || 14,
-      pending: payments.filter((p) => p.status === 'Pending').length || 5,
-      partial: payments.filter((p) => p.status === 'Partial').length || 4,
-      deposit: payments.filter((p) => p.status === 'Deposit').length || 6,
-      refund: payments.filter((p) => p.status === 'Refund').length || 2,
+      all: payments.length,
+      paid: payments.filter((p) => p.status === 'Paid').length,
+      unpaid: payments.filter((p) => p.status === 'Unpaid').length,
     };
   }, [payments]);
 
@@ -127,6 +126,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
                 onViewRental={onViewRental}
                 onViewCustomer={onViewCustomer}
                 onViewReceipt={onViewReceipt}
+                onUpdateStatus={onUpdatePaymentStatus}
               />
             )}
           </div>

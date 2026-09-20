@@ -13,83 +13,22 @@ export interface EquipmentListItem {
 }
 
 interface EquipmentSelectionPanelProps {
+  inventory: InventoryItem[];
   selectedItems: Record<number, number>; // id -> quantity
   onToggleSelect: (item: EquipmentListItem) => void;
   onUpdateQuantity: (itemId: number, delta: number) => void;
   onViewInventory?: () => void;
+  onNext?: () => void;
 }
 
-export const referenceEquipmentList: EquipmentListItem[] = [
-  {
-    id: 1,
-    name: 'Sony A7 IV',
-    category: 'Camera',
-    categoryKey: 'cameras',
-    availableCount: 8,
-    dailyRate: 2500,
-    imageUrl: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 2,
-    name: 'Canon R6 Mark II',
-    category: 'Camera',
-    categoryKey: 'cameras',
-    availableCount: 5,
-    dailyRate: 2000,
-    imageUrl: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 3,
-    name: 'DJI RS 4',
-    category: 'Gimbal',
-    categoryKey: 'stabilizers',
-    availableCount: 6,
-    dailyRate: 1200,
-    imageUrl: 'https://images.unsplash.com/photo-1588702547919-26089e690ecc?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 4,
-    name: 'Sony 24-70mm GM II',
-    category: 'Lens',
-    categoryKey: 'lenses',
-    availableCount: 4,
-    dailyRate: 1800,
-    imageUrl: 'https://images.unsplash.com/photo-1617005082133-548c4dd27f35?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 5,
-    name: 'Sigma 85mm F1.4',
-    category: 'Lens',
-    categoryKey: 'lenses',
-    availableCount: 6,
-    dailyRate: 1200,
-    imageUrl: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 6,
-    name: 'Rode Wireless GO II',
-    category: 'Microphone',
-    categoryKey: 'audio',
-    availableCount: 10,
-    dailyRate: 500,
-    imageUrl: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 7,
-    name: 'Godox SL60W',
-    category: 'Lighting',
-    categoryKey: 'lighting',
-    availableCount: 6,
-    dailyRate: 800,
-    imageUrl: 'https://images.unsplash.com/photo-1512790182412-b19e6d62bc39?w=150&auto=format&fit=crop&q=80',
-  },
-];
 
 export const EquipmentSelectionPanel: React.FC<EquipmentSelectionPanelProps> = ({
+  inventory,
   selectedItems,
   onToggleSelect,
   onUpdateQuantity,
   onViewInventory,
+  onNext,
 }) => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -104,8 +43,19 @@ export const EquipmentSelectionPanel: React.FC<EquipmentSelectionPanelProps> = (
     { id: 'accessories', label: 'Accessories' },
   ];
 
+  // Map inventory to EquipmentListItem
+  const equipmentList: EquipmentListItem[] = (inventory || []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    categoryKey: item.category.toLowerCase(), // Maps 'Cameras' to 'cameras'
+    availableCount: item.status === 'Available' ? 1 : 0, // Since inventory might represent individual assets, just use 1 if available
+    dailyRate: item.rental_rate,
+    imageUrl: item.image_url,
+  }));
+
   // Filter equipment
-  const filteredList = referenceEquipmentList.filter((item) => {
+  const filteredList = equipmentList.filter((item) => {
     const matchesCategory =
       activeCategory === 'all' || item.categoryKey === activeCategory;
     const matchesSearch =
@@ -116,7 +66,7 @@ export const EquipmentSelectionPanel: React.FC<EquipmentSelectionPanelProps> = (
   });
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col">
+    <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col h-full min-h-0">
       {/* Header & View Inventory Button */}
       <div className="flex items-start justify-between mb-4">
         <div>
@@ -168,7 +118,7 @@ export const EquipmentSelectionPanel: React.FC<EquipmentSelectionPanelProps> = (
       </div>
 
       {/* Equipment List */}
-      <div className="space-y-2.5 overflow-y-auto max-h-[460px] pr-1 scrollbar-thin">
+      <div className="space-y-2.5 overflow-y-auto flex-1 min-h-0 pr-1 scrollbar-thin">
         {filteredList.map((item) => {
           const isSelected = !!selectedItems[item.id];
           const quantity = selectedItems[item.id] || 0;
@@ -272,6 +222,19 @@ export const EquipmentSelectionPanel: React.FC<EquipmentSelectionPanelProps> = (
           );
         })}
       </div>
+
+      {/* Footer Navigation */}
+      {onNext && (
+        <div className="pt-4 mt-2 border-t border-slate-100 flex justify-end shrink-0">
+          <button
+            onClick={onNext}
+            className="px-5 py-2.5 bg-[#E11D48] hover:bg-rose-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+          >
+            <span>Continue to Schedule</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -48,7 +48,7 @@ export const NeedsAttention: React.FC<NeedsAttentionProps> = ({
 
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-slate-900">
-                    {isOverdue ? 'Overdue Rental' : 'Pending Payment'}
+                    {isOverdue ? 'Overdue Rental' : 'Unpaid Payment'}
                   </span>
                   <span className="text-[11px] text-slate-500 font-medium">
                     {item.code} &bull; {item.party_name} &bull; {item.detail}

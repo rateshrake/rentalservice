@@ -15,7 +15,8 @@ import {
   Edit2,
   Printer,
   Clock,
-  UserCheck
+  UserCheck,
+  Trash2
 } from 'lucide-react';
 import { InventoryItem } from '../../types';
 
@@ -23,14 +24,56 @@ interface EquipmentInsightsPanelProps {
   item: InventoryItem;
   onClose?: () => void;
   onViewRental?: (rentalCode: string) => void;
+  onEditEquipment?: (item: InventoryItem) => void;
+  onDeleteEquipment?: (id: number) => void;
 }
+
+const formatDateDisplay = (val?: string) => {
+  if (!val) return '—';
+  const d = new Date(val);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  return val;
+};
 
 export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
   item,
   onClose,
   onViewRental,
+  onEditEquipment,
+  onDeleteEquipment,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'maintenance' | 'history'>('overview');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isLoggingService, setIsLoggingService] = useState(false);
+  const [maintenanceForm, setMaintenanceForm] = useState({ reason: '', cost: '' });
+  const [localMaintenanceHistory, setLocalMaintenanceHistory] = useState(item.maintenance_history || []);
+
+  // Update local history and reset menus/modals when item changes
+  React.useEffect(() => {
+    setLocalMaintenanceHistory(item.maintenance_history || []);
+    setShowDeleteConfirm(false);
+    setIsMenuOpen(false);
+  }, [item]);
+
+  const handleLogService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!maintenanceForm.reason) return;
+    
+    const newRecord = {
+      id: Date.now(),
+      title: maintenanceForm.reason,
+      description: `Cost: ₹${maintenanceForm.cost || '0'}`,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      icon_type: 'wrench' as const,
+    };
+    
+    setLocalMaintenanceHistory([newRecord, ...localMaintenanceHistory]);
+    setMaintenanceForm({ reason: '', cost: '' });
+    setIsLoggingService(false);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -52,17 +95,37 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
     <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 flex flex-col justify-between h-full overflow-y-auto">
       <div>
         {/* Top bar controls */}
-        <div className="flex items-center justify-end gap-1 mb-2">
-          <button className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors cursor-pointer">
+        <div className="flex items-center justify-end gap-1 mb-2 relative">
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+          >
             <MoreHorizontal className="w-4 h-4" />
           </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          
+          {isMenuOpen && (
+            <div className="absolute right-0 top-6 w-32 bg-white rounded-lg shadow-lg border border-slate-200 z-10 py-1">
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onEditEquipment?.(item);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                Edit
+              </button>
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  setShowDeleteConfirm(true);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
+              </button>
+            </div>
           )}
         </div>
 
@@ -126,9 +189,9 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
             }`}
           >
             Maintenance
-            {item.maintenance_history && item.maintenance_history.length > 0 && (
+            {localMaintenanceHistory.length > 0 && (
               <span className="ml-1.5 px-1.5 py-0.2 bg-slate-100 rounded-full text-[10px] text-slate-600 font-normal">
-                {item.maintenance_history.length}
+                {localMaintenanceHistory.length}
               </span>
             )}
           </button>
@@ -147,44 +210,6 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
         {/* Tab 1: Overview */}
         {activeSubTab === 'overview' && (
           <div className="space-y-4">
-            {/* 3 Metric Cards */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-3 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-400">
-                  <span className="text-[10.5px] font-semibold text-slate-600">Lifetime Revenue</span>
-                  <IndianRupee className="w-3.5 h-3.5 text-slate-400" />
-                </div>
-                <div className="mt-2">
-                  <span className="text-sm font-extrabold text-slate-900">
-                    ₹{item.lifetime_revenue.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-3 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-400">
-                  <span className="text-[10.5px] font-semibold text-slate-600">Utilization</span>
-                  <Activity className="w-3.5 h-3.5 text-slate-400" />
-                </div>
-                <div className="mt-2">
-                  <span className="text-sm font-extrabold text-slate-900">
-                    {item.utilization_rate}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-3 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-400">
-                  <span className="text-[10.5px] font-semibold text-slate-600">Total Rentals</span>
-                  <Repeat className="w-3.5 h-3.5 text-slate-400" />
-                </div>
-                <div className="mt-2">
-                  <span className="text-sm font-extrabold text-slate-900">
-                    {item.lifetime_rentals}
-                  </span>
-                </div>
-              </div>
-            </div>
 
             {/* Current Rental Info (if Rented Out) */}
             {item.status === 'Rented Out' && (
@@ -250,7 +275,7 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
                   Purchase Date
                 </span>
                 <span className="text-slate-800 font-medium">
-                  {item.purchase_date}
+                  {formatDateDisplay(item.purchase_date)}
                 </span>
               </div>
 
@@ -260,7 +285,7 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
                   Warranty
                 </span>
                 <span className="text-emerald-700 font-medium">
-                  {item.warranty}
+                  {formatDateDisplay(item.warranty)}
                 </span>
               </div>
 
@@ -274,57 +299,6 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
                 </span>
               </div>
             </div>
-
-            {/* Maintenance History */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
-                  Maintenance History
-                </h4>
-                <button
-                  onClick={() => setActiveSubTab('maintenance')}
-                  className="text-[11px] text-[#E11D48] hover:underline font-semibold cursor-pointer"
-                >
-                  View All
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {item.maintenance_history && item.maintenance_history.length > 0 ? (
-                  item.maintenance_history.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-100 bg-white hover:bg-slate-50/80 transition-colors text-xs"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200/60">
-                        {m.icon_type === 'wrench' ? (
-                          <Wrench className="w-3 h-3" />
-                        ) : (
-                          <CheckCircle2 className="w-3 h-3" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-bold text-slate-900 truncate">
-                            {m.title}
-                          </span>
-                          <span className="text-[10px] text-slate-400 shrink-0 font-medium">
-                            {m.date}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                          {m.description}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4 text-slate-400 text-xs">
-                    No maintenance records logged yet.
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -333,12 +307,50 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-1">
               <span className="text-xs font-bold text-slate-900">Service Logs</span>
-              <button className="px-2.5 py-1 bg-red-50 text-[#E11D48] hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors cursor-pointer">
-                + Log Service
+              <button 
+                onClick={() => setIsLoggingService(!isLoggingService)}
+                className="px-2.5 py-1 bg-red-50 text-[#E11D48] hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                {isLoggingService ? 'Cancel' : '+ Log Service'}
               </button>
             </div>
 
-            {item.maintenance_history && item.maintenance_history.map((m) => (
+            {isLoggingService && (
+              <form onSubmit={handleLogService} className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 mb-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Reason for Service *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Sensor Cleaning"
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-red-400"
+                    value={maintenanceForm.reason}
+                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, reason: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Cost of Maintenance (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-red-400"
+                    value={maintenanceForm.cost}
+                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, cost: e.target.value })}
+                  />
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 bg-[#E11D48] text-white text-[11px] font-bold rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
+                  >
+                    Save Log
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {localMaintenanceHistory.length > 0 ? localMaintenanceHistory.map((m) => (
               <div
                 key={m.id}
                 className="p-3 rounded-xl border border-slate-200/80 bg-white hover:shadow-2xs transition-shadow space-y-1"
@@ -355,13 +367,13 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
                     <Calendar className="w-3 h-3" />
                     {m.date}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Wrench className="w-3 h-3" />
-                    Authorized Service Center
-                  </span>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="text-center py-4 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+                No service logs found.
+              </div>
+            )}
           </div>
         )}
 
@@ -408,17 +420,33 @@ export const EquipmentInsightsPanel: React.FC<EquipmentInsightsPanelProps> = ({
         )}
       </div>
 
-      {/* Bottom Actions */}
-      <div className="pt-4 mt-4 border-t border-slate-100 flex items-center gap-2">
-        <button className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer">
-          <Edit2 className="w-3.5 h-3.5" />
-          <span>Edit Gear</span>
-        </button>
-        <button className="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer">
-          <Printer className="w-3.5 h-3.5 text-slate-500" />
-          <span>Label</span>
-        </button>
-      </div>
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden p-6 relative">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Delete Equipment</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Are you sure you want to delete <span className="font-semibold text-slate-700">{item.name}</span>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  onDeleteEquipment?.(item.id);
+                }}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition-colors cursor-pointer"
+              >
+                Delete Equipment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

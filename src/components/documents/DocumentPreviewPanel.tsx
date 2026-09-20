@@ -225,7 +225,7 @@ export const DocumentPreviewPanel: React.FC<DocumentPreviewPanelProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              This legally binding rental contract between LensLedger and {document.customer_name} covers custody, insurance deductible, and return inspection protocols for {document.rental_id}.
+              This legally binding rental contract between CameraHub and {document.customer_name} covers custody, insurance deductible, and return inspection protocols for {document.rental_id}.
             </p>
           </div>
         )}

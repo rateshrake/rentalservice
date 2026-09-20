@@ -27,13 +27,13 @@ export const NewRentalStepper: React.FC<NewRentalStepperProps> = ({
     },
     {
       number: 4,
-      title: 'Pricing & Payment',
-      subtitle: 'Set pricing & collect advance',
+      title: 'Review',
+      subtitle: 'Review items & schedule',
     },
     {
       number: 5,
-      title: 'Review',
-      subtitle: 'Confirm and create',
+      title: 'Pricing & Payment',
+      subtitle: 'Confirm and collect payment',
     },
   ];
 

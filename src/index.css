@@ -1,24 +1,81 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   STEP 3: STRIP WEB BEHAVIORS — Make the app feel like a native desktop app
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @layer base {
   * {
     box-sizing: border-box;
-  }
-  body {
-    user-select: none;
+
+    /* ── Prevent text selection everywhere (like a desktop app) ─────────── */
     -webkit-user-select: none;
+    user-select: none;
+
+    /* ── Prevent image / element ghosting when dragging ─────────────────── */
+    -webkit-user-drag: none;
+  }
+
+  /* ── Re-enable text selection inside all interactive text inputs ─────── */
+  input,
+  textarea,
+  [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+    /* Prevent cursor from showing as "text" on the whole app */
+    cursor: default;
+  }
+
+  /* But show the correct cursor INSIDE inputs */
+  input:focus,
+  textarea:focus,
+  [contenteditable]:focus {
+    cursor: text;
+  }
+
+  /* ── Prevent images from being draggable (no ghost drag) ────────────── */
+  img {
+    -webkit-user-drag: none;
+    user-drag: none;
+    pointer-events: none; /* images should not intercept mouse events unless explicitly needed */
+  }
+
+  /* ── Remove the default browser outline on focused elements ─────────── */
+  /* We handle our own focus styles via Tailwind's ring utilities */
+  :focus {
+    outline: none;
+  }
+
+  /* ── Remove tap highlight on mobile-style touch events ──────────────── */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── Prevent overscroll bounce (rubber band effect) ─────────────────── */
+  html,
+  body {
+    overscroll-behavior: none;
   }
 }
 
-/* Electron drag regions */
+/* ═══════════════════════════════════════════════════════════════════════════
+   STEP 1: ELECTRON DRAG REGIONS
+   Apply class="app-drag-region" to the title bar.
+   Apply class="app-no-drag" to any interactive children inside it.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .app-drag-region {
   -webkit-app-region: drag;
 }
+
 .app-no-drag {
   -webkit-app-region: no-drag;
 }
 
-/* Custom sleek scrollbar */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CUSTOM SCROLLBAR — Subtle and native-feeling
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -27,9 +84,12 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #334155; /* slate-700 */
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #475569; /* slate-600 */
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

@@ -6,7 +6,7 @@ import { EquipmentRevenueRanking } from './EquipmentRevenueRanking';
 import { CategoryUtilizationCard } from './CategoryUtilizationCard';
 import { TopCustomersCard } from './TopCustomersCard';
 import { PaymentModeSplitCard } from './PaymentModeSplitCard';
-import { InsightsObservations } from './InsightsObservations';
+
 import { AnalyticsData } from '../../types';
 
 interface AnalyticsViewProps {
@@ -68,10 +68,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
         </div>
 
-        {/* Row 4: Insights & Observations (5 cards) */}
-        <div>
-          <InsightsObservations insights={data.insights} />
-        </div>
+
       </div>
     </div>
   );

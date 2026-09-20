@@ -12,6 +12,9 @@ interface CustomersViewProps {
   onOpenSearch: () => void;
   onViewAllRentals?: () => void;
   onUpdateNotes?: (id: number, notes: string) => void;
+  onUpdateVerification?: (id: number, status: string) => void;
+  onEditCustomer?: (customer: CustomerItem) => void;
+  onDeleteCustomer?: (id: number) => void;
 }
 
 export const CustomersView: React.FC<CustomersViewProps> = ({
@@ -21,6 +24,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
   onOpenSearch,
   onViewAllRentals,
   onUpdateNotes,
+  onUpdateVerification,
+  onEditCustomer,
+  onDeleteCustomer,
 }) => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<number>(customers[0]?.id || 1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,7 +80,16 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                 customer={selectedCustomer}
                 onClose={() => {}}
                 onUpdateNotes={onUpdateNotes}
+                onUpdateVerification={onUpdateVerification}
                 onViewAllRentals={onViewAllRentals}
+                onEditCustomer={onEditCustomer}
+                onDeleteCustomer={(id) => {
+                  onDeleteCustomer?.(id);
+                  if (selectedCustomerId === id) {
+                    const nextId = customers.find((c) => c.id !== id)?.id;
+                    setSelectedCustomerId(nextId || 0);
+                  }
+                }}
               />
             )}
           </div>

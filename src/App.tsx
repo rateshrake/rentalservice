@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Titlebar } from './components/Titlebar';
 import { Sidebar } from './components/Sidebar';
-import { Header } from './components/Header';
+import { SetupView } from './components/SetupView';
+import { LoginView } from './components/LoginView';
 import { StatsGrid } from './components/StatsGrid';
 import { QuickActions } from './components/QuickActions';
 import { NeedsAttention } from './components/NeedsAttention';
@@ -16,15 +17,15 @@ import { InventoryView } from './components/inventory/InventoryView';
 import { PaymentsView } from './components/payments/PaymentsView';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { MessagesView } from './components/messages/MessagesView';
-import { DocumentsView } from './components/documents/DocumentsView';
 import { SettingsView } from './components/settings/SettingsView';
 import { NewRentalView } from './components/new-rental/NewRentalView';
 
 import { NewRentalModal } from './components/modals/NewRentalModal';
 import { QuickSearchModal } from './components/modals/QuickSearchModal';
-import { AddCustomerModal } from './components/modals/AddCustomerModal';
+import { AddCustomerModal, CustomerFormData } from './components/modals/AddCustomerModal';
 import { ReceiveReturnModal } from './components/modals/ReceiveReturnModal';
 import { RecordPaymentModal } from './components/modals/RecordPaymentModal';
+import { AddEquipmentModal } from './components/modals/AddEquipmentModal';
 
 import {
   initialDashboardData,
@@ -57,8 +58,11 @@ import {
 } from './types';
 
 export const App: React.FC = () => {
-  // Default to 'new-rental' to display the newly built section immediately
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'new-rental' | 'rentals' | 'customers' | 'inventory' | 'payments' | 'analytics' | 'messages' | 'documents' | 'settings' | string>('new-rental');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'new-rental' | 'rentals' | 'customers' | 'inventory' | 'payments' | 'analytics' | 'messages' | 'settings' | string>('dashboard');
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean | null>(null);
+  const [appConfig, setAppConfig] = useState<Record<string, string>>({});
+  const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
+  
   const [dashboardData, setDashboardData] = useState<DashboardData>(initialDashboardData);
   const [rentals, setRentals] = useState<RentalItem[]>(allRentalsData);
   const [customers, setCustomers] = useState<CustomerItem[]>(allCustomersData);
@@ -75,6 +79,10 @@ export const App: React.FC = () => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [customerToEdit, setCustomerToEdit] = useState<CustomerItem | Partial<CustomerItem> | undefined>(undefined);
+  const [customerCreatedCallback, setCustomerCreatedCallback] = useState<((customer: CustomerItem) => void) | null>(null);
+  const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
+  const [equipmentToEdit, setEquipmentToEdit] = useState<InventoryItem | null>(null);
 
   // Toast message
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -87,10 +95,31 @@ export const App: React.FC = () => {
   // Load data from Electron SQLite
   useEffect(() => {
     const loadData = async () => {
+      if (window.electronAPI?.getAppConfig) {
+        try {
+          const config = await window.electronAPI.getAppConfig();
+          setAppConfig(config);
+          const hasOwnerAccount = Boolean(config.owner_name && config.owner_password);
+          setIsSetupComplete(hasOwnerAccount);
+        } catch (err) {
+          console.error('Error fetching app config:', err);
+          setIsSetupComplete(false);
+        }
+      } else {
+        const localOwnerName = localStorage.getItem('ll_owner_name');
+        const localOwnerPass = localStorage.getItem('ll_owner_password');
+        if (localOwnerName && localOwnerPass) {
+          setAppConfig({ owner_name: localOwnerName, owner_password: localOwnerPass });
+          setIsSetupComplete(true);
+        } else {
+          setIsSetupComplete(false);
+        }
+      }
+
       if (window.electronAPI?.getDashboardData) {
         try {
           const dbData = await window.electronAPI.getDashboardData();
-          if (dbData && dbData.stats?.length > 0) {
+          if (dbData) {
             setDashboardData(dbData);
           }
         } catch (err) {
@@ -101,9 +130,7 @@ export const App: React.FC = () => {
       if (window.electronAPI?.getAllRentals) {
         try {
           const allRnts = await window.electronAPI.getAllRentals();
-          if (allRnts && allRnts.length > 0) {
-            setRentals(allRnts);
-          }
+          setRentals(allRnts || []);
         } catch (err) {
           console.error('Error fetching all rentals from SQLite:', err);
         }
@@ -112,9 +139,7 @@ export const App: React.FC = () => {
       if (window.electronAPI?.getCustomers) {
         try {
           const allCusts = await window.electronAPI.getCustomers();
-          if (allCusts && allCusts.length > 0) {
-            setCustomers(allCusts);
-          }
+          setCustomers(allCusts || []);
         } catch (err) {
           console.error('Error fetching customers from SQLite:', err);
         }
@@ -123,9 +148,7 @@ export const App: React.FC = () => {
       if (window.electronAPI?.getInventory) {
         try {
           const allInv = await window.electronAPI.getInventory();
-          if (allInv && allInv.length > 0) {
-            setInventory(allInv);
-          }
+          setInventory(allInv || []);
         } catch (err) {
           console.error('Error fetching inventory from SQLite:', err);
         }
@@ -134,9 +157,7 @@ export const App: React.FC = () => {
       if (window.electronAPI?.getPayments) {
         try {
           const allPays = await window.electronAPI.getPayments();
-          if (allPays && allPays.length > 0) {
-            setPayments(allPays);
-          }
+          setPayments(allPays || []);
         } catch (err) {
           console.error('Error fetching payments from SQLite:', err);
         }
@@ -145,7 +166,7 @@ export const App: React.FC = () => {
       if (window.electronAPI?.getAnalyticsData) {
         try {
           const aData = await window.electronAPI.getAnalyticsData();
-          if (aData && aData.kpis?.length > 0) {
+          if (aData) {
             setAnalyticsData(aData);
           }
         } catch (err) {
@@ -156,7 +177,7 @@ export const App: React.FC = () => {
       if (window.electronAPI?.getMessagesData) {
         try {
           const mData = await window.electronAPI.getMessagesData();
-          if (mData && mData.templates?.length > 0) {
+          if (mData) {
             setMessagesData(mData);
           }
         } catch (err) {
@@ -167,7 +188,7 @@ export const App: React.FC = () => {
       if (window.electronAPI?.getDocumentsData) {
         try {
           const dData = await window.electronAPI.getDocumentsData();
-          if (dData && dData.documents?.length > 0) {
+          if (dData) {
             setDocumentsData(dData);
           }
         } catch (err) {
@@ -178,7 +199,7 @@ export const App: React.FC = () => {
       if (window.electronAPI?.getSettingsData) {
         try {
           const sData = await window.electronAPI.getSettingsData();
-          if (sData && sData.employees?.length > 0) {
+          if (sData) {
             setSettingsData(sData);
           }
         } catch (err) {
@@ -190,7 +211,7 @@ export const App: React.FC = () => {
     loadData();
   }, []);
 
-  // Keyboard shortcut for Ctrl+K
+  // Keyboard shortcut for Ctrl+K (Quick Search)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -201,6 +222,30 @@ export const App: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // ── Step 2: Subscribe to native menu actions (File, View, etc.) ─────────
+  // The main process sends these via ipcRenderer after a menu item is clicked.
+  useEffect(() => {
+    if (!window.electronAPI?.onMenuAction) return;
+
+    const unsub = window.electronAPI.onMenuAction((action: string, payload?: string) => {
+      if (action === 'navigate' && payload) {
+        setActiveTab(payload);
+      } else if (action === 'search') {
+        setIsSearchModalOpen(true);
+      } else if (action === 'backup') {
+        handleTriggerBackup().then(() => showToast('Backup completed successfully!'));
+      } else if (action === 'export') {
+        showToast('Export feature coming soon…');
+      } else if (action === 'import') {
+        showToast(`Import from: ${payload}`);
+      }
+    });
+
+    return unsub; // clean up on unmount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // Handlers for quick actions
   const handleQuickAction = (action: 'rental' | 'customer' | 'return' | 'payment') => {
@@ -227,11 +272,11 @@ export const App: React.FC = () => {
           customer_name: newRentalData.customer_name || 'Customer',
           customer_phone: newRentalData.customer_phone || '+91 98765 00000',
           equipment_name: newRentalData.equipment_name || 'Gear Item',
-          pickup_date: '27 May 2025 10:00 AM',
+          pickup_date: newRentalData.pickup_date || '27 May 2025 10:00 AM',
           return_time: newRentalData.return_time || 'Today, 8:00 PM',
           amount: newRentalData.amount || 0,
           payment_status: newRentalData.payment_status || 'Paid',
-          status: newRentalData.status || 'Due Today',
+          status: newRentalData.status || 'Active',
         };
         setRentals((prev) => [newEntry, ...prev]);
         setDashboardData((prev) => ({
@@ -251,6 +296,35 @@ export const App: React.FC = () => {
     if (window.electronAPI?.updateRentalStatus) {
       await window.electronAPI.updateRentalStatus(id, status, payment_status);
     }
+    const matchedRental = rentals.find((r) => r.id === id);
+    if (matchedRental && payment_status === 'Paid' && matchedRental.payment_status !== 'Paid') {
+      const newPay: Partial<PaymentItem> = {
+        transaction_id: `TXN-2025-${Math.floor(1000 + Math.random() * 9000)}`,
+        rental_id: matchedRental.rental_code,
+        customer_name: matchedRental.customer_name,
+        type: 'Rental',
+        mode: 'Cash',
+        amount: matchedRental.amount,
+        collected_by: 'Staff',
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        time: 'Today',
+        status: 'Paid',
+        utr_reference: `REC${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+        notes: `Payment marked as paid for ${matchedRental.equipment_name}.`,
+        equipment_name: matchedRental.equipment_name,
+        rental_period: matchedRental.pickup_date || 'Current Rental',
+      };
+      if (window.electronAPI?.createPayment) {
+        try {
+          const saved = await window.electronAPI.createPayment(newPay);
+          setPayments((prev) => [saved, ...prev]);
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        setPayments((prev) => [{ ...newPay, id: Date.now() } as PaymentItem, ...prev]);
+      }
+    }
     setRentals((prev) =>
       prev.map((r) =>
         r.id === id ? { ...r, status: status as any, payment_status: payment_status as any } : r
@@ -262,7 +336,11 @@ export const App: React.FC = () => {
         r.id === id ? { ...r, status: status as any, payment_status: payment_status as any } : r
       ),
     }));
-    showToast('Rental status updated');
+    showToast(
+      payment_status === 'Paid'
+        ? `Rental ${matchedRental?.rental_code || ''} marked as Paid!`
+        : 'Rental status updated'
+    );
   };
 
   // Update customer notes
@@ -276,12 +354,148 @@ export const App: React.FC = () => {
     showToast('Customer notes saved');
   };
 
-  const handleReturnProcessed = (rentalId: number) => {
+  const handleUpdateCustomerVerification = async (id: number, status: string) => {
+    if (window.electronAPI?.updateCustomerVerification) {
+      await window.electronAPI.updateCustomerVerification(id, status);
+    }
+    setCustomers((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, verification: status as any } : c))
+    );
+    showToast(`Customer marked as ${status}`);
+  };
+
+  // Create new customer
+  const handleCreateCustomer = async (data: CustomerFormData) => {
+    try {
+      if (window.electronAPI?.createCustomer) {
+        const saved = await window.electronAPI.createCustomer(data);
+        setCustomers((prev) => [saved, ...prev]);
+        showToast(`Customer ${saved.name} registered successfully!`);
+        if (customerCreatedCallback) {
+          customerCreatedCallback(saved);
+          setCustomerCreatedCallback(null);
+        }
+      } else {
+        const initials = data.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'CU';
+        const cleanAadhaar = data.aadhaar_number.replace(/\D/g, '');
+        const maskedAadhaar = cleanAadhaar.length >= 4 ? `•••• •••• ${cleanAadhaar.slice(-4)}` : '•••• •••• ••••';
+        const newCust: CustomerItem = {
+          id: Date.now(),
+          code: `CUST-0${customers.length + 1}`,
+          name: data.name,
+          primary_phone: data.primary_phone,
+          alternate_phone: data.alternate_phone || '',
+          location: data.address || '',
+          address: data.address || '',
+          aadhaar_number: data.aadhaar_number,
+          verification: data.verification || 'Pending',
+          total_rentals: 0,
+          active_rentals: 0,
+          outstanding_amount: 0,
+          last_rental: 'New Customer',
+          avatar_type: 'initials',
+          avatar_text: initials,
+          customer_since: 'Today',
+          id_proof_type: 'Identity Proof (Aadhaar)',
+          id_proof_masked: maskedAadhaar,
+          notes: 'Newly registered customer.',
+        };
+        setCustomers((prev) => [newCust, ...prev]);
+        showToast(`Customer ${data.name} registered successfully!`);
+        if (customerCreatedCallback) {
+          customerCreatedCallback(newCust);
+          setCustomerCreatedCallback(null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to create customer:', err);
+      showToast('Failed to register customer');
+    }
+  };
+
+  // Update existing customer
+  const handleUpdateCustomer = async (id: number, data: CustomerFormData) => {
+    try {
+      if (window.electronAPI?.updateCustomer) {
+        const updated = await window.electronAPI.updateCustomer(id, data);
+        setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
+        showToast(`Customer ${updated.name} updated successfully!`);
+      } else {
+        const initials = data.name.trim().split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'CU';
+        const cleanAadhaar = data.aadhaar_number.replace(/\D/g, '');
+        const maskedAadhaar = cleanAadhaar.length >= 4 ? `•••• •••• ${cleanAadhaar.slice(-4)}` : '•••• •••• ••••';
+        setCustomers((prev) =>
+          prev.map((c) => {
+            if (c.id !== id) return c;
+            return {
+              ...c,
+              name: data.name,
+              primary_phone: data.primary_phone,
+              alternate_phone: data.alternate_phone || '',
+              location: data.address || '',
+              address: data.address || '',
+              aadhaar_number: data.aadhaar_number,
+              verification: data.verification || c.verification,
+              avatar_text: initials,
+              id_proof_masked: maskedAadhaar,
+            };
+          })
+        );
+        showToast(`Customer ${data.name} updated successfully!`);
+      }
+    } catch (err) {
+      console.error('Failed to update customer:', err);
+      showToast('Failed to update customer');
+    }
+  };
+
+  const handleDeleteCustomer = async (id: number) => {
+    try {
+      if (window.electronAPI?.deleteCustomer) {
+        await window.electronAPI.deleteCustomer(id);
+      }
+      setCustomers((prev) => prev.filter((c) => c.id !== id));
+      showToast('Customer deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete customer:', err);
+      showToast('Failed to delete customer');
+    }
+  };
+
+  const handleReturnProcessed = async (rentalId: number, condition: string, extraPenalty: number, paymentMode?: string) => {
     handleUpdateStatus(rentalId, 'Returned', 'Paid');
+    
+    if (extraPenalty > 0 && window.electronAPI?.createPayment) {
+      const rental = rentals.find((r) => r.id === rentalId);
+      if (rental) {
+        const newPay: Partial<PaymentItem> = {
+          transaction_id: `PEN-2025-0${543 + payments.length}`,
+          rental_id: rental.rental_code,
+          customer_name: rental.customer_name,
+          amount: extraPenalty,
+          mode: (paymentMode || 'UPI') as 'UPI' | 'Cash' | 'Card' | 'Bank Transfer',
+          type: 'Late Fee',
+          collected_by: 'Ravi Kumar',
+          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Paid',
+          notes: `Late return penalty collected for ${rental.equipment_name}.`,
+          equipment_name: rental.equipment_name,
+          rental_period: rental.pickup_date || 'Current Rental',
+        };
+        try {
+          const saved = await window.electronAPI.createPayment(newPay);
+          setPayments((prev) => [saved, ...prev]);
+          showToast(`Late penalty of ₹${extraPenalty} recorded successfully!`);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
   };
 
   const handlePaymentRecorded = async (rentalId: number) => {
-    handleUpdateStatus(rentalId, 'Due Today', 'Paid');
+    handleUpdateStatus(rentalId, 'Active', 'Paid');
     const matchedRental = rentals.find((r) => r.id === rentalId);
     if (matchedRental) {
       const newPay: Partial<PaymentItem> = {
@@ -311,6 +525,21 @@ export const App: React.FC = () => {
         setPayments((prev) => [{ ...newPay, id: Date.now() } as PaymentItem, ...prev]);
       }
       showToast(`Payment of ₹${matchedRental.amount.toLocaleString('en-IN')} recorded successfully!`);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (id: number, status: 'Paid' | 'Unpaid') => {
+    try {
+      if (window.electronAPI?.updatePaymentStatus) {
+        await window.electronAPI.updatePaymentStatus(id, status);
+      }
+      setPayments((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status } : p))
+      );
+      showToast(`Payment marked as ${status}`);
+    } catch (e) {
+      console.error('Failed to update payment status:', e);
+      showToast('Failed to update payment status');
     }
   };
 
@@ -377,21 +606,76 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleAddEmployee = async (emp: Partial<EmployeeItem>) => {
+  const handleAddEmployee = async (emp: Partial<EmployeeItem>): Promise<EmployeeItem> => {
     try {
       if (window.electronAPI?.addEmployee) {
-        return await window.electronAPI.addEmployee(emp);
+        const added = await window.electronAPI.addEmployee(emp);
+        setSettingsData((prev) => ({
+          ...prev,
+          employees: [...prev.employees, added],
+        }));
+        return added;
       }
     } catch (e) {
       console.error('Failed to add employee:', e);
     }
-    return {
+    const fallback: EmployeeItem = {
       id: Date.now(),
       name: emp.name || 'Staff',
       role: emp.role || 'Staff',
-      email: emp.email || 'staff@lensledger.in',
-      status: emp.status || 'Active',
+      email: emp.email || 'staff@camerahub.in',
+      status: (emp.status as 'Active' | 'Inactive') || 'Active',
+      phone: emp.phone || '',
     };
+    setSettingsData((prev) => ({
+      ...prev,
+      employees: [...prev.employees, fallback],
+    }));
+    return fallback;
+  };
+
+  const handleUpdateEmployee = async (
+    id: number,
+    data: { name: string; phone: string; role: string; status: 'Active' | 'Inactive' }
+  ): Promise<boolean> => {
+    try {
+      if (window.electronAPI?.updateEmployee) {
+        await window.electronAPI.updateEmployee(
+          id,
+          data.name,
+          data.role,
+          `${data.name.toLowerCase().replace(/\s+/g, '.')}@camerahub.in`,
+          data.status,
+          data.phone
+        );
+      }
+      setSettingsData((prev) => ({
+        ...prev,
+        employees: prev.employees.map((e) =>
+          e.id === id ? { ...e, ...data } : e
+        ),
+      }));
+      return true;
+    } catch (e) {
+      console.error('Failed to update employee:', e);
+      return false;
+    }
+  };
+
+  const handleRemoveEmployee = async (id: number): Promise<boolean> => {
+    try {
+      if (window.electronAPI?.removeEmployee) {
+        await window.electronAPI.removeEmployee(id);
+      }
+      setSettingsData((prev) => ({
+        ...prev,
+        employees: prev.employees.filter((e) => e.id !== id),
+      }));
+      return true;
+    } catch (e) {
+      console.error('Failed to remove employee:', e);
+      return false;
+    }
   };
 
   const handleTriggerBackup = async () => {
@@ -405,199 +689,277 @@ export const App: React.FC = () => {
     return true;
   };
 
+  const handleSaveEquipment = async (data: Partial<InventoryItem>) => {
+    if (equipmentToEdit) {
+      if (window.electronAPI?.updateInventoryItem) {
+        try {
+          const updated = await window.electronAPI.updateInventoryItem(equipmentToEdit.id, data);
+          setInventory((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+          showToast(`Equipment ${updated.name} updated successfully!`);
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        setInventory((prev) => prev.map((item) => (item.id === equipmentToEdit.id ? { ...item, ...data } as InventoryItem : item)));
+        showToast(`Equipment updated successfully!`);
+      }
+    } else {
+      if (window.electronAPI?.createInventoryItem) {
+        try {
+          const created = await window.electronAPI.createInventoryItem(data);
+          setInventory((prev) => [...prev, created]);
+          showToast(`Equipment ${created.name} added successfully!`);
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        const newItem = { ...data, id: Date.now() } as InventoryItem;
+        setInventory((prev) => [...prev, newItem]);
+        showToast(`Equipment added successfully!`);
+      }
+    }
+  };
+
+  const handleDeleteEquipment = async (id: number) => {
+    if (window.electronAPI?.deleteInventoryItem) {
+      try {
+        await window.electronAPI.deleteInventoryItem(id);
+        setInventory((prev) => prev.filter((item) => item.id !== id));
+        showToast(`Equipment deleted successfully!`);
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      setInventory((prev) => prev.filter((item) => item.id !== id));
+      showToast(`Equipment deleted successfully!`);
+    }
+  };
+
+  const handleSetupComplete = async (username: string, password: string) => {
+    if (window.electronAPI?.saveAppConfig) {
+      await window.electronAPI.saveAppConfig({
+        owner_name: username,
+        owner_password: password
+      });
+    } else {
+      localStorage.setItem('ll_owner_name', username);
+      localStorage.setItem('ll_owner_password', password);
+    }
+    setAppConfig((prev) => ({ ...prev, owner_name: username, owner_password: password }));
+    setIsSetupComplete(true);
+    setCurrentUser({ name: username, role: 'Owner' });
+    showToast(`Welcome, ${username}! Owner profile created.`);
+  };
+
+  if (isSetupComplete === null) {
+    return <div className="flex h-screen items-center justify-center bg-slate-900 text-white">Loading...</div>;
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Custom Frameless Titlebar */}
       <Titlebar />
 
-      {/* Main Container: Sidebar + Active View */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Dark Sidebar */}
-        <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
-
-        {/* View Switching */}
-        {activeTab === 'new-rental' ? (
-          <NewRentalView
-            customers={customers}
-            onNavigateTab={setActiveTab}
-            onCreateRentalBooking={handleCreateRental}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-          />
-        ) : activeTab === 'settings' ? (
-          <SettingsView
-            data={settingsData}
-            onSaveSettings={handleSaveSettings}
-            onAddEmployee={handleAddEmployee}
-            onTriggerBackup={handleTriggerBackup}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-          />
-        ) : activeTab === 'documents' ? (
-          <DocumentsView
-            data={documentsData}
-            onUploadDocument={handleUploadDocument}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-          />
-        ) : activeTab === 'messages' ? (
-          <MessagesView
-            data={messagesData}
-            onSendMessage={handleSendMessage}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-          />
-        ) : activeTab === 'analytics' ? (
-          <AnalyticsView
-            data={analyticsData}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-            onSelectCustomer={() => setActiveTab('customers')}
-          />
-        ) : activeTab === 'payments' ? (
-          <PaymentsView
-            payments={payments}
-            kpiStats={paymentsKpiData}
-            onOpenRecordPayment={() => setIsPaymentModalOpen(true)}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-            onViewRental={() => setActiveTab('rentals')}
-            onViewCustomer={() => setActiveTab('customers')}
-            onViewReceipt={(p) =>
-              showToast(`Receipt for ${p.transaction_id} (₹${p.amount.toLocaleString('en-IN')}) ready!`)
-            }
-          />
-        ) : activeTab === 'inventory' ? (
-          <InventoryView
-            inventory={inventory}
-            kpiStats={inventoryKpiData}
-            onOpenAddEquipment={() => showToast('Add Equipment modal opening...')}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-            onViewRental={() => setActiveTab('rentals')}
-          />
-        ) : activeTab === 'customers' ? (
-          <CustomersView
-            customers={customers}
-            kpiStats={customersKpiData}
-            onOpenAddCustomer={() => setIsCustomerModalOpen(true)}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-            onViewAllRentals={() => setActiveTab('rentals')}
-            onUpdateNotes={handleUpdateCustomerNotes}
-          />
-        ) : activeTab === 'rentals' ? (
-          <RentalsView
-            rentals={rentals}
-            kpiStats={rentalsKpiData}
-            onOpenNewRental={() => setActiveTab('new-rental')}
-            onOpenSearch={() => setIsSearchModalOpen(true)}
-            onUpdateStatus={handleUpdateStatus}
-          />
-        ) : (
-          <main className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] overflow-hidden">
-            {/* Dashboard Header */}
-            <Header
-              onOpenNewRental={() => setActiveTab('new-rental')}
-              onOpenSearch={() => setIsSearchModalOpen(true)}
+      {isSetupComplete === false ? (
+        <SetupView
+          initialUsername={appConfig.owner_name}
+          onComplete={handleSetupComplete}
+        />
+      ) : !currentUser ? (
+        <LoginView
+          ownerName={appConfig.owner_name || ''}
+          ownerPassword={appConfig.owner_password || ''}
+          employees={settingsData.employees || []}
+          onLogin={(user) => {
+            setCurrentUser(user);
+            showToast(`Welcome, ${user.name}! Signed in as ${user.role}.`);
+          }}
+        />
+      ) : (
+        <>
+          <div className="flex flex-1 overflow-hidden">
+            <Sidebar
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
+              username={currentUser.name}
+              role={currentUser.role}
+              onLogout={() => {
+                setCurrentUser(null);
+                showToast('Logged out successfully.');
+              }}
             />
+            
+            {activeTab === 'new-rental' ? (
+              <NewRentalView
+                customers={customers}
+                inventory={inventory}
+                onNavigateTab={setActiveTab}
+                onCreateRentalBooking={handleCreateRental}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+                onOpenAddCustomer={(initialPhone, onCreated) => {
+                  setCustomerToEdit({ primary_phone: initialPhone });
+                  setCustomerCreatedCallback(() => onCreated);
+                  setIsCustomerModalOpen(true);
+                }}
+              />
+            ) : activeTab === 'settings' ? (
+              <SettingsView
+                data={settingsData}
+                onSaveSettings={handleSaveSettings}
+                onAddEmployee={handleAddEmployee}
+                onUpdateEmployee={handleUpdateEmployee}
+                onRemoveEmployee={handleRemoveEmployee}
+                onTriggerBackup={handleTriggerBackup}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+              />
+            ) : activeTab === 'messages' ? (
+              <MessagesView
+                data={messagesData}
+                onSendMessage={handleSendMessage}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+              />
+            ) : activeTab === 'analytics' ? (
+              <AnalyticsView
+                data={analyticsData}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+                onSelectCustomer={() => setActiveTab('customers')}
+              />
+            ) : activeTab === 'payments' ? (
+              <PaymentsView
+                payments={payments}
+                kpiStats={paymentsKpiData}
+                onOpenRecordPayment={() => setIsPaymentModalOpen(true)}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+                onViewRental={() => setActiveTab('rentals')}
+                onViewCustomer={() => setActiveTab('customers')}
+                onViewReceipt={(p) =>
+                  showToast(`Receipt for ${p.transaction_id} (₹${p.amount.toLocaleString('en-IN')}) ready!`)
+                }
+                onUpdatePaymentStatus={handleUpdatePaymentStatus}
+              />
+            ) : activeTab === 'inventory' ? (
+              <InventoryView
+                inventory={inventory}
+                kpiStats={inventoryKpiData}
+                onOpenAddEquipment={() => {
+                  setEquipmentToEdit(null);
+                  setIsEquipmentModalOpen(true);
+                }}
+                onEditEquipment={(item) => {
+                  setEquipmentToEdit(item);
+                  setIsEquipmentModalOpen(true);
+                }}
+                onDeleteEquipment={handleDeleteEquipment}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+                onViewRental={() => setActiveTab('rentals')}
+              />
+            ) : activeTab === 'customers' ? (
+              <CustomersView
+                customers={customers}
+                kpiStats={customersKpiData}
+                onOpenAddCustomer={() => {
+                  setCustomerToEdit(undefined);
+                  setIsCustomerModalOpen(true);
+                }}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+                onViewAllRentals={() => setActiveTab('rentals')}
+                onUpdateNotes={handleUpdateCustomerNotes}
+                onUpdateVerification={handleUpdateCustomerVerification}
+                onEditCustomer={(c) => {
+                  setCustomerToEdit(c);
+                  setIsCustomerModalOpen(true);
+                }}
+                onDeleteCustomer={handleDeleteCustomer}
+              />
+            ) : activeTab === 'rentals' ? (
+              <RentalsView
+                rentals={rentals}
+                kpiStats={rentalsKpiData}
+                onOpenNewRental={() => setActiveTab('new-rental')}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+                onUpdateStatus={handleUpdateStatus}
+                onOpenReceiveReturn={() => setIsReturnModalOpen(true)}
+              />
+            ) : (
+              <main className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] overflow-hidden">
+                <div className="flex-1 overflow-y-auto px-8 py-5 space-y-4">
+                  <StatsGrid stats={dashboardData.stats} />
+                  <div className="grid grid-cols-12 gap-4">
+                    <div className="col-span-7">
+                      <QuickActions onActionClick={handleQuickAction} />
+                    </div>
+                    <div className="col-span-5">
+                      <NeedsAttention
+                        items={dashboardData.attention}
+                        onViewAll={() => setActiveTab('rentals')}
+                      />
+                    </div>
+                  </div>
 
-            {/* Scrollable Dashboard Body */}
-            <div className="flex-1 overflow-y-auto px-8 py-5 space-y-4">
-              {/* 6 KPI Metric Cards */}
-              <StatsGrid stats={dashboardData.stats} />
-
-              {/* Middle Row: Quick Actions (7 cols) + Needs Attention (5 cols) */}
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-7">
-                  <QuickActions onActionClick={handleQuickAction} />
+                  <div>
+                    <TodaysRentals
+                      rentals={dashboardData.rentals}
+                      onViewAll={() => setActiveTab('rentals')}
+                      onUpdateStatus={handleUpdateStatus}
+                    />
+                  </div>
                 </div>
-                <div className="col-span-5">
-                  <NeedsAttention
-                    items={dashboardData.attention}
-                    onViewAll={() => setActiveTab('rentals')}
-                  />
-                </div>
-              </div>
+                <StatusBar />
+              </main>
+            )}
+          </div>
 
-              {/* Lower Row: Revenue Trend (7 cols) + Top Equipment (5 cols) */}
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-7">
-                  <RevenueTrend
-                    data={dashboardData.revenueTrend}
-                    summary={dashboardData.summary}
-                  />
-                </div>
-                <div className="col-span-5">
-                  <TopEquipment items={dashboardData.topEquipment} />
-                </div>
-              </div>
+          <NewRentalModal
+            isOpen={isRentalModalOpen}
+            onClose={() => setIsRentalModalOpen(false)}
+            onSubmit={handleCreateRental}
+          />
+          <QuickSearchModal
+            isOpen={isSearchModalOpen}
+            onClose={() => setIsSearchModalOpen(false)}
+            rentals={rentals}
+            equipment={dashboardData.topEquipment}
+          />
+          <AddCustomerModal
+            isOpen={isCustomerModalOpen}
+            onClose={() => {
+              setIsCustomerModalOpen(false);
+              setCustomerToEdit(undefined);
+              setCustomerCreatedCallback(null);
+            }}
+            onSuccess={(data) => {
+              if (customerToEdit && 'id' in customerToEdit && customerToEdit.id) {
+                handleUpdateCustomer(customerToEdit.id as number, data);
+              } else {
+                handleCreateCustomer(data);
+              }
+              setIsCustomerModalOpen(false);
+              setCustomerToEdit(undefined);
+            }}
+            initialData={customerToEdit}
+          />
+          <ReceiveReturnModal
+            isOpen={isReturnModalOpen}
+            onClose={() => setIsReturnModalOpen(false)}
+            rentals={rentals}
+            settings={settingsData.lateFeeRules}
+            onReturnProcessed={handleReturnProcessed}
+          />
+          <RecordPaymentModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            rentals={rentals}
+            onPaymentRecorded={handlePaymentRecorded}
+          />
+          <AddEquipmentModal
+            isOpen={isEquipmentModalOpen}
+            onClose={() => setIsEquipmentModalOpen(false)}
+            onSave={handleSaveEquipment}
+            itemToEdit={equipmentToEdit}
+          />
+        </>
+      )}
 
-              {/* Today's Rentals Table */}
-              <div>
-                <TodaysRentals
-                  rentals={dashboardData.rentals}
-                  onViewAll={() => setActiveTab('rentals')}
-                  onUpdateStatus={handleUpdateStatus}
-                />
-              </div>
-            </div>
-
-            {/* Bottom Status Bar */}
-            <StatusBar />
-          </main>
-        )}
-      </div>
-
-      {/* Interactive Modals */}
-      <NewRentalModal
-        isOpen={isRentalModalOpen}
-        onClose={() => setIsRentalModalOpen(false)}
-        onSubmit={handleCreateRental}
-      />
-
-      <QuickSearchModal
-        isOpen={isSearchModalOpen}
-        onClose={() => setIsSearchModalOpen(false)}
-        rentals={rentals}
-        equipment={dashboardData.topEquipment}
-      />
-
-      <AddCustomerModal
-        isOpen={isCustomerModalOpen}
-        onClose={() => setIsCustomerModalOpen(false)}
-        onSuccess={(name) => {
-          showToast(`Customer ${name} registered successfully!`);
-          const newCust: CustomerItem = {
-            id: Date.now(),
-            code: `CUST-0${customers.length + 1}`,
-            name,
-            primary_phone: '+91 98000 11223',
-            email: `${name.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
-            location: 'Mumbai, Maharashtra',
-            total_rentals: 0,
-            active_rentals: 0,
-            outstanding_amount: 0,
-            last_rental: 'New Customer',
-            verification: 'Pending',
-            avatar_type: 'initials',
-            avatar_text: name.slice(0, 2).toUpperCase(),
-            customer_since: 'Today',
-            id_proof_type: 'Identity Proof (Aadhaar)',
-            id_proof_masked: '**** **** 0000',
-            notes: 'Newly registered customer.',
-          };
-          setCustomers((prev) => [newCust, ...prev]);
-        }}
-      />
-
-      <ReceiveReturnModal
-        isOpen={isReturnModalOpen}
-        onClose={() => setIsReturnModalOpen(false)}
-        rentals={rentals}
-        onReturnProcessed={handleReturnProcessed}
-      />
-
-      <RecordPaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        rentals={rentals}
-        onPaymentRecorded={handlePaymentRecorded}
-      />
-
-      {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-12 right-6 bg-slate-900 text-white px-4 py-2.5 rounded-lg shadow-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 z-50">
           <span className="w-2 h-2 rounded-full bg-emerald-400" />

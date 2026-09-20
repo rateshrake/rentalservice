@@ -64,11 +64,8 @@ export const RentalsFilterBar: React.FC<RentalsFilterBarProps> = ({
             className="appearance-none bg-white border border-slate-200 rounded-lg pl-3 pr-8 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 focus:outline-none cursor-pointer"
           >
             <option value="all">All Status</option>
-            <option value="Due Today">Due Today</option>
             <option value="Active">Active</option>
             <option value="Returned">Returned</option>
-            <option value="Overdue">Overdue</option>
-            <option value="Reserved">Reserved</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-2.5 pointer-events-none" />
         </div>
@@ -82,7 +79,6 @@ export const RentalsFilterBar: React.FC<RentalsFilterBarProps> = ({
           >
             <option value="all">All Payment Status</option>
             <option value="Paid">Paid</option>
-            <option value="Pending">Pending</option>
             <option value="Unpaid">Unpaid</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-2.5 pointer-events-none" />

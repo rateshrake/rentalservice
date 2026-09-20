@@ -1,72 +1,54 @@
-import React, { useState, useMemo } from 'react';
-import { NewRentalHeader } from './NewRentalHeader';
+import React, { useState, useMemo, useEffect } from 'react';
 import { NewRentalStepper } from './NewRentalStepper';
 import { CustomerSelectionPanel } from './CustomerSelectionPanel';
 import {
   EquipmentSelectionPanel,
   EquipmentListItem,
-  referenceEquipmentList,
 } from './EquipmentSelectionPanel';
 import { RentalSummaryPanel } from './RentalSummaryPanel';
 import { ScheduleStepPanel } from './ScheduleStepPanel';
 import { PricingPaymentStepPanel } from './PricingPaymentStepPanel';
 import { ReviewConfirmStepPanel } from './ReviewConfirmStepPanel';
 import { StatusBar } from '../StatusBar';
-import { CustomerItem, NewRentalPricing, NewRentalSchedule, RentalItem } from '../../types';
+import { CustomerItem, NewRentalPricing, NewRentalSchedule, RentalItem, InventoryItem } from '../../types';
 import { CheckCircle, Calendar, ArrowRight, Printer } from 'lucide-react';
+import { parseTimeParts, normalizeTimeFormatted } from './TimePickerInput';
 
 interface NewRentalViewProps {
   customers: CustomerItem[];
+  inventory: InventoryItem[];
   onNavigateTab: (tab: string) => void;
   onCreateRentalBooking: (booking: Partial<RentalItem>) => Promise<RentalItem | void>;
   onOpenSearch?: () => void;
+  onOpenAddCustomer?: (initialPhone: string, onCreated: (customer: CustomerItem) => void) => void;
 }
 
 export const NewRentalView: React.FC<NewRentalViewProps> = ({
   customers,
+  inventory,
   onNavigateTab,
   onCreateRentalBooking,
   onOpenSearch,
+  onOpenAddCustomer,
 }) => {
   // Wizard current step (1-5)
   const [currentStep, setCurrentStep] = useState<number>(2);
 
-  // Selected Customer (defaulting to Vikram Shah matching screenshot)
-  const defaultCustomer = useMemo(() => {
-    return (
-      customers.find((c) => c.name === 'Vikram Shah') ||
-      customers[0] || {
-        id: 1,
-        code: 'CUST-001',
-        name: 'Vikram Shah',
-        primary_phone: '+91 98765 43210',
-        alternate_phone: '+91 87654 32109',
-        email: 'vikram.shah@gmail.com',
-        location: 'Mumbai, Maharashtra',
-        total_rentals: 8,
-        active_rentals: 1,
-        outstanding_amount: 0,
-        last_rental: '12 May 2025',
-        verification: 'Verified' as const,
-        avatar_type: 'initials' as const,
-        avatar_text: 'VS',
-        customer_since: '12 Jan 2024',
-        id_proof_type: 'Identity Proof (Aadhaar)',
-        id_proof_masked: '•••• •••• 1234',
-        notes: 'Regular customer. Prefers Sony and Canon gear.',
-      }
-    );
-  }, [customers]);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerItem | null>(() => {
+    return customers && customers.length > 0 ? customers[0] : null;
+  });
 
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerItem>(defaultCustomer);
+  // Auto-populate customer if customers load asynchronously and none is selected yet
+  useEffect(() => {
+    if (!selectedCustomer && customers && customers.length > 0) {
+      setSelectedCustomer(customers[0]);
+    }
+  }, [customers, selectedCustomer]);
 
-  // Selected Equipment: map id -> quantity. In screenshot, Sony A7 IV (qty 1) and Canon R6 Mark II (qty 1) are checked!
+  // Selected Equipment: map id -> quantity. Defaults to empty (no equipment selected by default)
   const [selectedEquipmentQuantities, setSelectedEquipmentQuantities] = useState<
     Record<number, number>
-  >({
-    1: 1, // Sony A7 IV
-    2: 1, // Canon R6 Mark II
-  });
+  >({});
 
   // Schedule state
   const [schedule, setSchedule] = useState<NewRentalSchedule>({
@@ -79,17 +61,18 @@ export const NewRentalView: React.FC<NewRentalViewProps> = ({
 
   // Has custom dates been set
   const [hasSetDates, setHasSetDates] = useState<boolean>(false);
+  const [stepError, setStepError] = useState<string | null>(null);
 
   // Pricing state
   const [pricing, setPricing] = useState<NewRentalPricing>({
-    subtotalPerDay: 4500,
+    subtotalPerDay: 0,
     rentalDays: 2,
-    rentalAmount: 9000,
-    securityDeposit: 10000,
-    advancePaid: 3000,
+    rentalAmount: 0,
+    securityDeposit: 0,
+    advancePaid: 0,
     discount: 0,
-    totalAmount: 19000,
-    balanceDue: 16000,
+    totalAmount: 0,
+    balanceDue: 0,
     paymentMode: 'UPI',
   });
 
@@ -97,17 +80,28 @@ export const NewRentalView: React.FC<NewRentalViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdBooking, setCreatedBooking] = useState<RentalItem | null>(null);
 
+  const equipmentList: EquipmentListItem[] = (inventory || []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    categoryKey: item.category.toLowerCase(),
+    availableCount: item.status === 'Available' ? 1 : 0,
+    dailyRate: item.rental_rate,
+    imageUrl: item.image_url,
+  }));
+
   // Compute selected gear list
   const selectedGear = useMemo(() => {
     return Object.entries(selectedEquipmentQuantities)
       .filter(([_, qty]) => qty > 0)
       .map(([idStr, qty]) => {
         const item =
-          referenceEquipmentList.find((eq) => eq.id === parseInt(idStr)) ||
-          referenceEquipmentList[0];
+          equipmentList.find((eq) => eq.id === parseInt(idStr)) ||
+          equipmentList[0];
         return { item, quantity: qty };
-      });
-  }, [selectedEquipmentQuantities]);
+      })
+      .filter((g) => g.item !== undefined);
+  }, [selectedEquipmentQuantities, inventory]);
 
   // Compute daily subtotal
   const dailySubtotal = useMemo(() => {
@@ -116,6 +110,22 @@ export const NewRentalView: React.FC<NewRentalViewProps> = ({
       0
     );
   }, [selectedGear]);
+
+  // Synchronize pricing whenever equipment daily subtotal or rental duration changes
+  useEffect(() => {
+    setPricing((p) => {
+      const rentAmt = dailySubtotal * schedule.durationDays;
+      const totAmt = rentAmt + p.securityDeposit;
+      return {
+        ...p,
+        subtotalPerDay: dailySubtotal,
+        rentalDays: schedule.durationDays,
+        rentalAmount: rentAmt,
+        totalAmount: totAmt,
+        balanceDue: Math.max(0, totAmt - p.advancePaid),
+      };
+    });
+  }, [dailySubtotal, schedule.durationDays]);
 
   // Handle equipment toggle
   const handleToggleSelectEquipment = (item: EquipmentListItem) => {
@@ -172,22 +182,28 @@ export const NewRentalView: React.FC<NewRentalViewProps> = ({
 
   // Handle Confirm and Create Booking
   const handleConfirmBooking = async () => {
+    if (!selectedCustomer) return;
     setIsSubmitting(true);
     const rentalCode = `RNT-2025-${Math.floor(100 + Math.random() * 900)}`;
     const equipmentNames = selectedGear
       .map((g) => (g.quantity > 1 ? `${g.item.name} (x${g.quantity})` : g.item.name))
       .join(' + ');
 
+    const parsedPickup = parseTimeParts(schedule.pickupTime);
+    const cleanPickupTime = normalizeTimeFormatted(parsedPickup.time, parsedPickup.period);
+    const parsedReturn = parseTimeParts(schedule.returnTime);
+    const cleanReturnTime = normalizeTimeFormatted(parsedReturn.time, parsedReturn.period);
+
     const newRentalPayload: Partial<RentalItem> = {
       rental_code: rentalCode,
       customer_name: selectedCustomer.name,
       customer_phone: selectedCustomer.primary_phone,
       equipment_name: equipmentNames,
-      pickup_date: `${schedule.pickupDate} ${schedule.pickupTime}`,
-      return_time: `${schedule.returnDate} ${schedule.returnTime}`,
+      pickup_date: `${schedule.pickupDate} ${cleanPickupTime}`,
+      return_time: `${schedule.returnDate} ${cleanReturnTime}`,
       amount: pricing.rentalAmount,
-      payment_status: pricing.balanceDue === 0 ? 'Paid' : 'Pending',
-      status: 'Reserved',
+      payment_status: pricing.paymentMode === 'Pay Later' ? 'Unpaid' : (pricing.balanceDue === 0 ? 'Paid' : 'Unpaid'),
+      status: 'Active',
     };
 
     try {
@@ -209,10 +225,6 @@ export const NewRentalView: React.FC<NewRentalViewProps> = ({
   if (createdBooking) {
     return (
       <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] h-full overflow-hidden">
-        <NewRentalHeader
-          onBack={() => onNavigateTab('dashboard')}
-          onOpenSearch={onOpenSearch}
-        />
         <div className="flex-1 overflow-y-auto p-8 flex items-center justify-center">
           <div className="max-w-2xl w-full bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center">
             <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100 shadow-xs">
@@ -251,6 +263,12 @@ export const NewRentalView: React.FC<NewRentalViewProps> = ({
                   {createdBooking.pickup_date} &rarr; {createdBooking.return_time}
                 </span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Payment Status:</span>
+                <span className={`font-bold ${createdBooking.payment_status === 'Paid' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  {createdBooking.payment_status}
+                </span>
+              </div>
               <div className="border-t border-rose-200/60 pt-2 flex justify-between">
                 <span className="text-slate-600 font-bold">Total Amount:</span>
                 <span className="font-bold text-[#E11D48] text-sm">
@@ -271,6 +289,8 @@ export const NewRentalView: React.FC<NewRentalViewProps> = ({
               <button
                 onClick={() => {
                   setCreatedBooking(null);
+                  setSelectedCustomer(null);
+                  setSelectedEquipmentQuantities({});
                   setCurrentStep(2);
                 }}
                 className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
@@ -287,93 +307,95 @@ export const NewRentalView: React.FC<NewRentalViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] h-full overflow-hidden">
-      {/* Top Header with Global Search, Notifications, Profile and Title */}
-      <NewRentalHeader
-        onBack={() => onNavigateTab('dashboard')}
-        onOpenSearch={onOpenSearch}
-      />
-
-      {/* Main Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-8 py-5">
+      {/* Main Content (Not globally scrollable) */}
+      <div className="flex-1 flex flex-col min-h-0 px-8 py-5">
         {/* Stepper with 5 Steps */}
-        <NewRentalStepper
-          currentStep={currentStep}
-          onSelectStep={(step) => setCurrentStep(step)}
-        />
+        <div className="shrink-0">
+          <NewRentalStepper
+            currentStep={currentStep}
+            onSelectStep={(step) => setCurrentStep(step)}
+          />
+        </div>
 
         {/* Main Content Area Based on Step */}
-        {currentStep <= 2 ? (
-          /* Step 1 & 2: 3-Column Layout Matching Screenshot media_1789503534233.png */
-          <div className="flex flex-col xl:flex-row gap-5 items-start">
-            {/* Column 1: 1. Customer (~28% width) */}
-            <div className="w-full xl:w-[340px] shrink-0">
-              <CustomerSelectionPanel
-                selectedCustomer={selectedCustomer}
-                allCustomers={customers}
-                onSelectCustomer={(cust) => setSelectedCustomer(cust)}
-                onEditCustomer={() => onNavigateTab('customers')}
-                onViewAllRentals={() => onNavigateTab('rentals')}
-              />
-            </div>
+        <div className="flex flex-col xl:flex-row gap-5 items-stretch flex-1 min-h-0 pt-4">
+          {/* Column 1: Customer Selection (Fixed) */}
+          <div className="w-full xl:w-[340px] shrink-0 flex flex-col min-h-0 overflow-y-auto">
+            <CustomerSelectionPanel
+              selectedCustomer={selectedCustomer}
+              allCustomers={customers}
+              onSelectCustomer={(cust) => setSelectedCustomer(cust)}
+              onEditCustomer={() => onNavigateTab('customers')}
+              onViewAllRentals={() => onNavigateTab('rentals')}
+              onAddNewCustomer={(searchQuery) => {
+                onOpenAddCustomer?.(searchQuery, (newCust) => {
+                  setSelectedCustomer(newCust);
+                });
+              }}
+            />
+          </div>
 
-            {/* Column 2: 2. Equipment (~44% width) */}
-            <div className="w-full xl:flex-1 min-w-0">
+          {/* Column 2: Dynamic Content Area */}
+          <div className="w-full xl:flex-1 min-w-0 flex flex-col min-h-0 overflow-y-auto pr-2 pb-4 scrollbar-thin">
+            {stepError && (
+              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs font-semibold text-red-700 flex items-center justify-between animate-in fade-in duration-150">
+                <span>{stepError}</span>
+                <button 
+                  type="button" 
+                  onClick={() => setStepError(null)} 
+                  className="text-red-500 hover:text-red-800 font-bold ml-2 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            {currentStep <= 2 ? (
               <EquipmentSelectionPanel
+                inventory={inventory}
                 selectedItems={selectedEquipmentQuantities}
                 onToggleSelect={handleToggleSelectEquipment}
                 onUpdateQuantity={handleUpdateQuantity}
                 onViewInventory={() => onNavigateTab('inventory')}
+                onNext={() => {
+                  if (!selectedCustomer) {
+                    setStepError('Please select a customer first.');
+                    return;
+                  }
+                  if (selectedGear.length === 0) {
+                    setStepError('Please select at least one equipment item.');
+                    return;
+                  }
+                  setStepError(null);
+                  setCurrentStep(3);
+                }}
               />
-            </div>
-
-            {/* Column 3: Rental Summary (~28% width) */}
-            <div className="w-full xl:w-[340px] shrink-0">
-              <RentalSummaryPanel
+            ) : currentStep === 3 ? (
+              <ScheduleStepPanel
+                schedule={schedule}
+                onChangeSchedule={handleScheduleChange}
+                onBack={() => setCurrentStep(2)}
+                onNext={() => setCurrentStep(4)}
+              />
+            ) : currentStep === 4 ? (
+              <ReviewConfirmStepPanel
                 customer={selectedCustomer}
                 selectedGear={selectedGear}
-                rentalDays={hasSetDates ? schedule.durationDays : null}
-                durationLabel={
-                  hasSetDates
-                    ? `${schedule.pickupDate} - ${schedule.returnDate}`
-                    : 'Not selected yet'
-                }
-                depositAmount={hasSetDates ? pricing.securityDeposit : 0}
-                advancePaidAmount={hasSetDates ? pricing.advancePaid : 0}
-                onChangeCustomer={() => setCurrentStep(1)}
-                onSetDates={() => setCurrentStep(3)}
-                onEditEquipment={() => setCurrentStep(2)}
-                onContinue={() => setCurrentStep(3)}
+                schedule={schedule}
+                pricing={pricing}
+                onBack={() => setCurrentStep(3)}
+                onNext={() => setCurrentStep(5)}
               />
-            </div>
+            ) : (
+              <PricingPaymentStepPanel
+                pricing={pricing}
+                onChangePricing={handlePricingChange}
+                isSubmitting={isSubmitting}
+                onBack={() => setCurrentStep(4)}
+                onConfirm={handleConfirmBooking}
+              />
+            )}
           </div>
-        ) : currentStep === 3 ? (
-          /* Step 3: Schedule & Timing */
-          <ScheduleStepPanel
-            schedule={schedule}
-            onChangeSchedule={handleScheduleChange}
-            onBack={() => setCurrentStep(2)}
-            onNext={() => setCurrentStep(4)}
-          />
-        ) : currentStep === 4 ? (
-          /* Step 4: Pricing & Payment */
-          <PricingPaymentStepPanel
-            pricing={pricing}
-            onChangePricing={handlePricingChange}
-            onBack={() => setCurrentStep(3)}
-            onNext={() => setCurrentStep(5)}
-          />
-        ) : (
-          /* Step 5: Review & Confirm */
-          <ReviewConfirmStepPanel
-            customer={selectedCustomer}
-            selectedGear={selectedGear}
-            schedule={schedule}
-            pricing={pricing}
-            isSubmitting={isSubmitting}
-            onBack={() => setCurrentStep(4)}
-            onConfirm={handleConfirmBooking}
-          />
-        )}
+        </div>
       </div>
 
       {/* Bottom Status Bar */}

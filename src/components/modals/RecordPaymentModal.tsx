@@ -15,8 +15,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   rentals,
   onPaymentRecorded,
 }) => {
-  const pendingRentals = rentals.filter((r) => r.payment_status === 'Pending');
-  const [selectedId, setSelectedId] = useState<number>(pendingRentals[0]?.id || rentals[0]?.id || 0);
+  const unpaidRentals = rentals.filter((r) => r.payment_status === 'Unpaid');
+  const [selectedId, setSelectedId] = useState<number>(unpaidRentals[0]?.id || rentals[0]?.id || 0);
   const [paymentMode, setPaymentMode] = useState('UPI / QR');
 
   if (!isOpen) return null;
@@ -55,11 +55,15 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               onChange={(e) => setSelectedId(Number(e.target.value))}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-xs focus:bg-white focus:outline-none"
             >
-              {rentals.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.rental_code} - {r.customer_name} (₹{r.amount.toLocaleString('en-IN')}) - {r.payment_status}
-                </option>
-              ))}
+              {unpaidRentals.length > 0 ? (
+                unpaidRentals.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.rental_code} - {r.customer_name} (₹{r.amount.toLocaleString('en-IN')}) - {r.payment_status}
+                  </option>
+                ))
+              ) : (
+                <option value={0} disabled>No unpaid rentals</option>
+              )}
             </select>
           </div>
 

@@ -21,6 +21,7 @@ interface PaymentDetailsPanelProps {
   onViewRental?: (rentalId: string) => void;
   onViewCustomer?: (customerName: string) => void;
   onViewReceipt?: (payment: PaymentItem) => void;
+  onUpdateStatus?: (paymentId: number, status: 'Paid' | 'Unpaid') => void;
 }
 
 export const PaymentDetailsPanel: React.FC<PaymentDetailsPanelProps> = ({
@@ -29,6 +30,7 @@ export const PaymentDetailsPanel: React.FC<PaymentDetailsPanelProps> = ({
   onViewRental,
   onViewCustomer,
   onViewReceipt,
+  onUpdateStatus,
 }) => {
   const [copiedUtr, setCopiedUtr] = useState(false);
 
@@ -40,59 +42,32 @@ export const PaymentDetailsPanel: React.FC<PaymentDetailsPanelProps> = ({
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Paid':
-        return (
-          <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-            <Check className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        );
-      case 'Pending':
-        return (
-          <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        );
-      case 'Partial':
-        return (
-          <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-            <CreditCard className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        );
-      case 'Deposit':
-        return (
-          <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        );
-      case 'Refund':
-      default:
-        return (
-          <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
-            <RotateCcw className="w-5 h-5 stroke-[2.5]" />
-          </div>
-        );
+    if (status === 'Paid') {
+      return (
+        <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+          <Check className="w-5 h-5 stroke-[2.5]" />
+        </div>
+      );
     }
+    return (
+      <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+        <Clock className="w-5 h-5 stroke-[2.5]" />
+      </div>
+    );
   };
 
   const getStatusPill = (status: string) => {
-    switch (status) {
-      case 'Paid':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'Pending':
-        return 'bg-orange-50 text-orange-700 border-orange-200';
-      case 'Partial':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Deposit':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Refund':
-      default:
-        return 'bg-rose-50 text-rose-700 border-rose-200';
+    if (status === 'Paid') {
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
+    return 'bg-rose-50 text-rose-700 border-rose-200';
   };
 
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const statuses: ('Paid' | 'Unpaid')[] = ['Paid', 'Unpaid'];
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 flex flex-col justify-between h-full overflow-y-auto">
+    <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 flex flex-col justify-between h-full overflow-y-auto relative">
       <div>
         {/* Top bar header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -209,9 +184,15 @@ export const PaymentDetailsPanel: React.FC<PaymentDetailsPanelProps> = ({
 
           <div className="flex items-center justify-between">
             <span className="text-slate-500">Status</span>
-            <div className="flex items-center gap-1.5 font-semibold text-slate-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>{payment.status}</span>
+            <div className="flex items-center gap-1.5 font-semibold">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  payment.status === 'Paid' ? 'bg-emerald-500' : 'bg-rose-500'
+                }`}
+              />
+              <span className={payment.status === 'Paid' ? 'text-emerald-700' : 'text-rose-700'}>
+                {payment.status}
+              </span>
             </div>
           </div>
         </div>
@@ -254,11 +235,45 @@ export const PaymentDetailsPanel: React.FC<PaymentDetailsPanelProps> = ({
       </div>
 
       {/* Action Buttons Footer */}
-      <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
-        <button className="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer">
+      <div className="pt-3 border-t border-slate-100 flex items-center gap-2 relative">
+        <button 
+          onClick={() => setShowStatusMenu(!showStatusMenu)}
+          className="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer relative"
+        >
           <MoreHorizontal className="w-3.5 h-3.5 text-slate-500" />
           <span>More Actions</span>
         </button>
+        
+        {showStatusMenu && (
+          <div className="absolute bottom-12 left-0 w-40 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50">
+            <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+              Update Status
+            </div>
+            {statuses.map(status => (
+              <button
+                key={status}
+                onClick={async () => {
+                  setShowStatusMenu(false);
+                  if (onUpdateStatus) {
+                    onUpdateStatus(payment.id, status);
+                  } else if (window.electronAPI?.updatePaymentStatus) {
+                    await window.electronAPI.updatePaymentStatus(payment.id, status);
+                    window.location.reload();
+                  }
+                }}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-50 font-medium ${
+                  payment.status === status
+                    ? status === 'Paid'
+                      ? 'text-emerald-600 bg-emerald-50/50'
+                      : 'text-rose-600 bg-rose-50/50'
+                    : 'text-slate-700'
+                }`}
+              >
+                Mark as {status}
+              </button>
+            ))}
+          </div>
+        )}
 
         <button
           onClick={() => onViewReceipt?.(payment)}

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Calendar, Clock, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { NewRentalSchedule } from '../../types';
+import { TimePickerInput } from './TimePickerInput';
 
 interface ScheduleStepPanelProps {
   schedule: NewRentalSchedule;
@@ -24,8 +25,42 @@ export const ScheduleStepPanel: React.FC<ScheduleStepPanelProps> = ({
   ];
 
   const handleApplyPreset = (days: number) => {
-    onChangeSchedule({ durationDays: days });
+    try {
+      const baseDate = schedule.pickupDate ? new Date(schedule.pickupDate) : new Date();
+      const targetDate = new Date(baseDate);
+      targetDate.setDate(targetDate.getDate() + days);
+      const returnDateStr = targetDate.toISOString().split('T')[0];
+      onChangeSchedule({ durationDays: days, returnDate: returnDateStr });
+    } catch {
+      onChangeSchedule({ durationDays: days });
+    }
   };
+
+  const handlePickupDateChange = (newDate: string) => {
+    let days = schedule.durationDays || 1;
+    if (newDate && schedule.returnDate) {
+      const p = new Date(newDate).getTime();
+      const r = new Date(schedule.returnDate).getTime();
+      if (!isNaN(p) && !isNaN(r) && r >= p) {
+        days = Math.max(1, Math.round((r - p) / (1000 * 60 * 60 * 24)));
+      }
+    }
+    onChangeSchedule({ pickupDate: newDate, durationDays: days });
+  };
+
+  const handleReturnDateChange = (newDate: string) => {
+    let days = schedule.durationDays || 1;
+    if (schedule.pickupDate && newDate) {
+      const p = new Date(schedule.pickupDate).getTime();
+      const r = new Date(newDate).getTime();
+      if (!isNaN(p) && !isNaN(r) && r >= p) {
+        days = Math.max(1, Math.round((r - p) / (1000 * 60 * 60 * 24)));
+      }
+    }
+    onChangeSchedule({ returnDate: newDate, durationDays: days });
+  };
+
+  const durationDays = schedule?.durationDays && schedule.durationDays > 0 ? schedule.durationDays : 1;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs max-w-3xl mx-auto animate-in fade-in duration-150">
@@ -39,25 +74,26 @@ export const ScheduleStepPanel: React.FC<ScheduleStepPanelProps> = ({
       </div>
 
       {/* Quick Presets */}
-      <div className="mb-6">
-        <label className="block text-xs font-semibold text-slate-700 mb-2">
-          Quick Duration Presets
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {presets.map((p) => {
-            const isSelected = schedule.durationDays === p.days;
+      <div className="mb-5">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 mb-2">
+          <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+          <span>Quick Duration Presets</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {presets.map((preset) => {
+            const isSelected = durationDays === preset.days;
             return (
               <button
-                key={p.label}
+                key={preset.label}
                 type="button"
-                onClick={() => handleApplyPreset(p.days)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                onClick={() => handleApplyPreset(preset.days)}
+                className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-[#E11D48] text-white font-semibold shadow-xs'
-                    : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
+                    ? 'bg-[#E11D48] text-white border-[#E11D48] shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                 }`}
               >
-                {p.label}
+                {preset.label}
               </button>
             );
           })}
@@ -82,28 +118,17 @@ export const ScheduleStepPanel: React.FC<ScheduleStepPanelProps> = ({
               </label>
               <input
                 type="date"
-                value={schedule.pickupDate}
-                onChange={(e) => onChangeSchedule({ pickupDate: e.target.value })}
+                value={schedule?.pickupDate || ''}
+                onChange={(e) => handlePickupDateChange(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
               />
             </div>
 
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                Pickup Time
-              </label>
-              <select
-                value={schedule.pickupTime}
-                onChange={(e) => onChangeSchedule({ pickupTime: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              >
-                <option value="09:00 AM">09:00 AM (Store Opening)</option>
-                <option value="10:00 AM">10:00 AM</option>
-                <option value="11:30 AM">11:30 AM</option>
-                <option value="02:00 PM">02:00 PM</option>
-                <option value="05:00 PM">05:00 PM</option>
-              </select>
-            </div>
+            <TimePickerInput
+              label="Pickup Time"
+              value={schedule?.pickupTime || '10:00 AM'}
+              onChange={(newVal) => onChangeSchedule({ pickupTime: newVal })}
+            />
           </div>
         </div>
 
@@ -123,50 +148,22 @@ export const ScheduleStepPanel: React.FC<ScheduleStepPanelProps> = ({
               </label>
               <input
                 type="date"
-                value={schedule.returnDate}
-                onChange={(e) => onChangeSchedule({ returnDate: e.target.value })}
+                value={schedule?.returnDate || ''}
+                onChange={(e) => handleReturnDateChange(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
               />
             </div>
 
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                Return Time
-              </label>
-              <select
-                value={schedule.returnTime}
-                onChange={(e) => onChangeSchedule({ returnTime: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              >
-                <option value="06:00 PM">06:00 PM</option>
-                <option value="07:30 PM">07:30 PM</option>
-                <option value="08:00 PM">08:00 PM (Closing Time)</option>
-                <option value="10:00 PM">10:00 PM (Night Drop)</option>
-              </select>
-            </div>
+            <TimePickerInput
+              label="Return Time"
+              value={schedule?.returnTime || '08:00 PM'}
+              onChange={(newVal) => onChangeSchedule({ returnTime: newVal })}
+            />
           </div>
         </div>
       </div>
 
-      {/* Summary Box */}
-      <div className="bg-[#FFF5F6] border border-rose-100 rounded-xl p-4 flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-[#E11D48]" />
-          <div>
-            <div className="text-xs font-bold text-slate-900">
-              Selected Duration: {schedule.durationDays} Day{schedule.durationDays > 1 ? 's' : ''}
-            </div>
-            <div className="text-[11px] text-slate-500">
-              From {schedule.pickupDate} ({schedule.pickupTime}) to {schedule.returnDate} ({schedule.returnTime})
-            </div>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className="text-[11px] font-bold text-[#E11D48] bg-white px-2.5 py-1 rounded-md border border-rose-200 shadow-2xs">
-            Standard 24h Blocks
-          </span>
-        </div>
-      </div>
+
 
       {/* Navigation Buttons */}
       <div className="flex items-center justify-between border-t border-slate-100 pt-4">
@@ -184,7 +181,7 @@ export const ScheduleStepPanel: React.FC<ScheduleStepPanelProps> = ({
           onClick={onNext}
           className="px-5 py-2.5 bg-[#E11D48] hover:bg-rose-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
         >
-          <span>Continue to Pricing & Payment</span>
+          <span>Continue to Review</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>

@@ -8,7 +8,9 @@
     "dev:web": "vite",
     "dev:electron": "cross-env NODE_ENV=development electron .",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package": "npm run build && electron-builder build --win",
+    "dist": "vite build && electron-builder --win"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +19,7 @@
   "dependencies": {
     "@libsql/client": "^0.18.0",
     "clsx": "^2.1.1",
+    "electron-store": "^8.2.0",
     "lucide-react": "^1.46.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -33,10 +36,50 @@
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
     "electron": "^44.4.0",
+    "electron-builder": "^26.15.3",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "wait-on": "^9.1.0"
+  },
+  "build": {
+    "appId": "com.yourcompany.camerahub",
+    "productName": "CameraHub",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "public/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/@libsql/**"
+    ],
+    "win": {
+      "icon": "public/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   }
 }

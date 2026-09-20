@@ -9,8 +9,8 @@ export interface StatItem {
   badge_type: 'emerald' | 'rose' | 'neutral';
 }
 
-export type PaymentStatusType = 'Paid' | 'Pending' | 'Unpaid';
-export type RentalStatusType = 'Due Today' | 'Active' | 'Returned' | 'Overdue' | 'Reserved' | 'On Time';
+export type PaymentStatusType = 'Paid' | 'Unpaid';
+export type RentalStatusType = 'Active' | 'Returned';
 
 export interface RentalItem {
   id: number;
@@ -33,6 +33,8 @@ export interface CustomerItem {
   alternate_phone?: string;
   email?: string;
   location?: string;
+  address?: string;
+  aadhaar_number?: string;
   total_rentals: number;
   active_rentals: number;
   outstanding_amount: number;
@@ -140,12 +142,12 @@ export interface PaymentItem {
   rental_id: string;
   customer_name: string;
   amount: number;
-  mode: 'UPI' | 'Card' | 'Bank Transfer' | 'Cash';
-  type: 'Rental' | 'Deposit' | 'Refund';
+  mode: 'UPI' | 'Cash' | 'Card' | 'Bank Transfer';
+  type: 'Rental' | 'Deposit' | 'Refund' | 'Late Fee';
   collected_by: string;
   date: string;
   time: string;
-  status: 'Paid' | 'Pending' | 'Partial' | 'Deposit' | 'Refund';
+  status: PaymentStatusType;
   utr_reference?: string;
   notes?: string;
   equipment_name?: string;
@@ -270,6 +272,7 @@ export interface EmployeeItem {
   id: number;
   name: string;
   role: string;
+  phone?: string;
   email: string;
   status: 'Active' | 'Inactive';
 }
@@ -286,6 +289,8 @@ export interface LateFeeRulesSettings {
   fee_type: string;
   fee_percentage: number;
   grace_period_days: number;
+  grace_period_mins: number;
+  hourly_penalty_amount: number;
   apply_automatically: boolean;
   send_overdue_reminders: boolean;
 }
@@ -365,17 +370,70 @@ export interface NewRentalPricing {
 }
 
 export interface ElectronAPI {
+  // Window controls
   minimize: () => void;
   maximize: () => void;
   close: () => void;
   isMaximized: () => Promise<boolean>;
+
+  /**
+   * Subscribe to maximize state changes pushed from the main process.
+   * Returns an unsubscribe function — call it on component unmount.
+   */
+  onMaximizeChange: (callback: (isMaximized: boolean) => void) => () => void;
+
+  /**
+   * Subscribe to native menu actions triggered by the application menu.
+   * Returns an unsubscribe function.
+   */
+  onMenuAction: (callback: (action: string, payload?: string) => void) => () => void;
+
+  // Native file dialogs
+  showOpenDialog: (options: {
+    title?: string;
+    defaultPath?: string;
+    filters?: Array<{ name: string; extensions: string[] }>;
+    properties?: Array<'openFile' | 'openDirectory' | 'multiSelections' | 'showHiddenFiles'>;
+  }) => Promise<{ canceled: boolean; filePaths: string[] }>;
+
+  showSaveDialog: (options: {
+    title?: string;
+    defaultPath?: string;
+    filters?: Array<{ name: string; extensions: string[] }>;
+  }) => Promise<{ canceled: boolean; filePath?: string }>;
+
+  openPath: (filePath: string) => Promise<string>;
+
+  // Database APIs
   getDashboardData: () => Promise<DashboardData>;
   getAllRentals: () => Promise<RentalItem[]>;
   createRental: (data: Partial<RentalItem>) => Promise<RentalItem>;
   updateRentalStatus: (id: number, status?: string, payment_status?: string) => Promise<boolean>;
   getCustomers: () => Promise<CustomerItem[]>;
+  createCustomer: (data: {
+    name: string;
+    primary_phone: string;
+    alternate_phone?: string;
+    aadhaar_number?: string;
+    address?: string;
+    verification?: 'Verified' | 'Pending';
+  }) => Promise<CustomerItem>;
+  updateCustomer: (id: number, data: {
+    name?: string;
+    primary_phone?: string;
+    alternate_phone?: string;
+    aadhaar_number?: string;
+    address?: string;
+    verification?: 'Verified' | 'Pending';
+    notes?: string;
+  }) => Promise<CustomerItem>;
   updateCustomerNotes: (id: number, notes: string) => Promise<boolean>;
+  updateCustomerVerification: (id: number, status: string) => Promise<boolean>;
+  deleteCustomer: (id: number) => Promise<boolean>;
   getInventory: () => Promise<InventoryItem[]>;
+  createInventoryItem: (item: Partial<InventoryItem>) => Promise<InventoryItem>;
+  updateInventoryItem: (id: number, item: Partial<InventoryItem>) => Promise<InventoryItem>;
+  deleteInventoryItem: (id: number) => Promise<boolean>;
   getPayments: () => Promise<PaymentItem[]>;
   createPayment: (data: Partial<PaymentItem>) => Promise<PaymentItem>;
   getAnalyticsData: () => Promise<AnalyticsData>;
@@ -387,8 +445,13 @@ export interface ElectronAPI {
   getSettingsData: () => Promise<SettingsData>;
   saveSettingsData: (settings: Partial<SettingsData>) => Promise<boolean>;
   addEmployee: (emp: Partial<EmployeeItem>) => Promise<EmployeeItem>;
+  updateEmployee: (id: number, name: string, role: string, email: string, status: string, phone?: string) => Promise<boolean>;
+  removeEmployee: (id: number) => Promise<boolean>;
   triggerBackup: () => Promise<boolean>;
-  platform: string;
+  getAppConfig: () => Promise<Record<string, string>>;
+  saveAppConfig: (config: Record<string, string>) => Promise<boolean>;
+  updatePaymentStatus: (id: number, status: string) => Promise<boolean>;
+  platform: 'win32' | 'darwin' | 'linux';
 }
 
 declare global {

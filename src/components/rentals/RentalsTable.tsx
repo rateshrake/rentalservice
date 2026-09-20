@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowUpDown, MoreHorizontal, CheckCircle2 } from 'lucide-react';
+import { ArrowUpDown, MoreHorizontal, CheckCircle2, CreditCard, RotateCcw, Check } from 'lucide-react';
 import { RentalItem } from '../../types';
 
 interface RentalsTableProps {
@@ -29,70 +29,37 @@ export const RentalsTable: React.FC<RentalsTableProps> = ({
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'Due Today':
-        return (
-          <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-600 border border-sky-200">
-            Due Today
-          </span>
-        );
       case 'Returned':
         return (
           <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
             Returned
           </span>
         );
-      case 'Overdue':
-        return (
-          <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-600 border border-rose-200">
-            Overdue
-          </span>
-        );
       case 'Active':
-        return (
-          <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-            Active
-          </span>
-        );
-      case 'Reserved':
-        return (
-          <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-            Reserved
-          </span>
-        );
       default:
         return (
-          <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-            {status}
+          <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-600 border border-sky-200">
+            Active
           </span>
         );
     }
   };
 
   const getPaymentBadge = (status: string) => {
-    switch (status) {
-      case 'Paid':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-800">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Paid
-          </span>
-        );
-      case 'Pending':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-800">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Pending
-          </span>
-        );
-      case 'Unpaid':
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
-            <span className="w-2 h-2 rounded-full bg-slate-400" />
-            Unpaid
-          </span>
-        );
+    if (status === 'Paid') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-800">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          Paid
+        </span>
+      );
     }
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-700">
+        <span className="w-2 h-2 rounded-full bg-rose-500" />
+        Unpaid
+      </span>
+    );
   };
 
   return (
@@ -280,39 +247,55 @@ export const RentalsTable: React.FC<RentalsTableProps> = ({
                       onClick={() =>
                         setActiveMenuId(activeMenuId === rental.id ? null : rental.id)
                       }
-                      className="p-1 hover:bg-slate-200/80 rounded-md text-slate-400 hover:text-slate-700 transition-colors"
+                      className="p-1 hover:bg-slate-200/80 rounded-md text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                     >
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
 
                     {/* Context menu */}
                     {activeMenuId === rental.id && (
-                      <div className="absolute right-2 top-10 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-30 min-w-[140px] text-left text-xs">
-                        <button
-                          onClick={() => {
-                            onUpdateStatus?.(rental.id, 'Returned', 'Paid');
-                            setActiveMenuId(null);
-                          }}
-                          className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-emerald-700 font-medium"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Mark Returned
-                        </button>
-                        <button
-                          onClick={() => {
-                            onUpdateStatus?.(rental.id, rental.status, 'Paid');
-                            setActiveMenuId(null);
-                          }}
-                          className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-slate-700"
-                        >
-                          Mark as Paid
-                        </button>
-                        <button
+                      <>
+                        <div
+                          className="fixed inset-0 z-20 cursor-default"
                           onClick={() => setActiveMenuId(null)}
-                          className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-slate-500"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                        />
+                        <div className="absolute right-2 top-10 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-30 min-w-[150px] text-left text-xs">
+                          {rental.payment_status !== 'Paid' ? (
+                            <button
+                              onClick={() => {
+                                onUpdateStatus?.(rental.id, rental.status, 'Paid');
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full px-3 py-2 hover:bg-emerald-50 flex items-center gap-2 text-emerald-700 font-semibold cursor-pointer"
+                            >
+                              <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                              Mark as Paid
+                            </button>
+                          ) : (
+                            <div className="px-3 py-1.5 flex items-center gap-2 text-slate-400 font-medium text-[11px]">
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
+                              Payment Complete
+                            </div>
+                          )}
+                          <button
+                            onClick={() => {
+                              onUpdateStatus?.(rental.id, 'Returned', rental.payment_status);
+                              setActiveMenuId(null);
+                            }}
+                            className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-slate-700 cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                            Mark Returned
+                          </button>
+                          <div className="border-t border-slate-100 my-1" />
+                          <button
+                            onClick={() => setActiveMenuId(null)}
+                            className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-slate-500 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </>
                     )}
                   </td>
                 </tr>

@@ -27,19 +27,10 @@ export const PaymentsTable: React.FC<PaymentsTableProps> = ({
   );
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Paid':
-        return { dot: 'bg-emerald-500', text: 'text-emerald-700' };
-      case 'Pending':
-        return { dot: 'bg-orange-500', text: 'text-orange-700' };
-      case 'Partial':
-        return { dot: 'bg-amber-400', text: 'text-amber-700' };
-      case 'Deposit':
-        return { dot: 'bg-purple-500', text: 'text-purple-700' };
-      case 'Refund':
-      default:
-        return { dot: 'bg-rose-500', text: 'text-rose-700' };
+    if (status === 'Paid') {
+      return { dot: 'bg-emerald-500', text: 'text-emerald-700' };
     }
+    return { dot: 'bg-rose-500', text: 'text-rose-700' };
   };
 
   return (

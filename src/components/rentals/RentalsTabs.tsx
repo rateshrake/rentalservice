@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type RentalTabType = 'all' | 'active' | 'due_today' | 'overdue' | 'returned' | 'reserved';
+export type RentalTabType = 'all' | 'active' | 'returned';
 
 interface RentalsTabsProps {
   activeTab: RentalTabType;
@@ -8,10 +8,7 @@ interface RentalsTabsProps {
   counts: {
     all: number;
     active: number;
-    due_today: number;
-    overdue: number;
     returned: number;
-    reserved: number;
   };
 }
 
@@ -23,10 +20,7 @@ export const RentalsTabs: React.FC<RentalsTabsProps> = ({
   const tabs: { id: RentalTabType; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: counts.all },
     { id: 'active', label: 'Active', count: counts.active },
-    { id: 'due_today', label: 'Due Today', count: counts.due_today },
-    { id: 'overdue', label: 'Overdue', count: counts.overdue },
     { id: 'returned', label: 'Returned', count: counts.returned },
-    { id: 'reserved', label: 'Reserved', count: counts.reserved },
   ];
 
   return (

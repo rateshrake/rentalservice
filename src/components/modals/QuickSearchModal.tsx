@@ -126,7 +126,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
         {/* Footer */}
         <div className="bg-slate-50 border-t border-slate-100 px-4 py-2 flex items-center justify-between text-[11px] text-slate-500">
           <span>Tip: Press ESC to close</span>
-          <span className="font-medium text-slate-700">LensLedger Global Quick Search</span>
+          <span className="font-medium text-slate-700">CameraHub Global Quick Search</span>
         </div>
       </div>
     </div>
