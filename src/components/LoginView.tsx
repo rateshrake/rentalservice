@@ -161,6 +161,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
           </div>
         </form>
 
+        <button
+          type="button"
+          onClick={() => onLogin({ name: ownerName || 'Test Owner', role: 'Owner' })}
+          className="w-full mt-3 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition-colors cursor-pointer"
+        >
+          Skip Login (Testing)
+        </button>
+
         {/* Credentials Guidance Note */}
         <div className="mt-6 pt-5 border-t border-slate-800/80 space-y-2">
           <div className="flex items-center gap-2 text-[11px] text-slate-400">
